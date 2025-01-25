@@ -18,7 +18,6 @@ public class UserActions: MonoBehaviour
 
     void Start() {
         databaseReference = FirebaseDatabase.DefaultInstance.RootReference;
-        // ObserveRounds(currentRoomId);
         this.firebaseFetchAPI = this.GetComponent<FirebaseAPIFetch>();
         this.firebaseWriteAPI = this.GetComponent<FirebaseWriteAPI>();
     }
@@ -32,6 +31,8 @@ public class UserActions: MonoBehaviour
                 currentPlayerId = result.playerId;
 
                 Debug.Log($"Room created with ID: {currentRoomId}, Player ID: {currentPlayerId}");
+                
+                ObserveRounds(currentRoomId);
             }
             else
             {
@@ -41,60 +42,75 @@ public class UserActions: MonoBehaviour
     }
 
     public void UserClickedJoinRoom () {
-        this.firebaseWriteAPI.JoinRoomAsync(roomIdInput.text, playerNameInput.text).ContinueWith(task => {});
+        this.firebaseWriteAPI.JoinRoomAsync(roomIdInput.text, playerNameInput.text).ContinueWith(task => {
+            if (task.IsCompletedSuccessfully)
+            {
+                currentRoomId = roomIdInput.text;
+                currentPlayerId = task.Result;
+
+                Debug.Log($"Joined room with ID: {currentRoomId}, Player ID: {currentPlayerId}");
+
+                // Start observing rounds for the joined room
+                ObserveRounds(currentRoomId);
+            }
+            else
+            {
+                Debug.LogError("Failed to join room: " + task.Exception?.Message);
+            }
+        });
     }
 
     public void UserClickedReady () {
         this.firebaseWriteAPI.UpdateIsReadyForPlayerAsync(currentRoomId, CurrentRoundId, currentPlayerId, true).ContinueWith(task => {});
     }
 
-    // private void ObserveRounds(string roomId)
-    // {
-    //     Debug.LogError($"observer 1");
+    private void ObserveRounds(string roomId)
+    {
+        Debug.LogError($"observer 1");
 
-    //     DatabaseReference roundsRef = databaseReference.Child("rooms").Child(roomId).Child("rounds");
+        DatabaseReference roundsRef = databaseReference.Child("rooms").Child(roomId).Child("rounds");
 
-    //     Debug.LogError($"observer 2");
-    //     roundsRef.ValueChanged += (sender, args) =>
-    //     {
-    //     Debug.LogError($"observer 3");
-    //         if (args.DatabaseError != null)
-    //         {
-    //             Debug.LogError($"Failed to observe rounds: {args.DatabaseError.Message}");
-    //             return;
-    //         }
+        Debug.LogError($"observer 2");
+        roundsRef.ValueChanged += (sender, args) =>
+        {
+        Debug.LogError($"observer 3");
+            if (args.DatabaseError != null)
+            {
+                Debug.LogError($"Failed to observe rounds: {args.DatabaseError.Message}");
+                return;
+            }
 
-    //         if (args.Snapshot.Exists)
-    //         {
-    //             // Find the latest round (highest round ID)
-    //             int latestRoundId = -1;
-    //             Dictionary<string, object> latestRoundData = null;
+            if (args.Snapshot.Exists)
+            {
+                // Find the latest round (highest round ID)
+                int latestRoundId = -1;
+                Dictionary<string, object> latestRoundData = null;
 
-    //             foreach (var roundSnapshot in args.Snapshot.Children)
-    //             {
-    //                 int roundId = int.Parse(roundSnapshot.Key);
-    //                 if (roundId > latestRoundId)
-    //                 {
-    //                     latestRoundId = roundId;
-    //                     latestRoundData = new Dictionary<string, object>();
+                foreach (var roundSnapshot in args.Snapshot.Children)
+                {
+                    int roundId = int.Parse(roundSnapshot.Key);
+                    if (roundId > latestRoundId)
+                    {
+                        latestRoundId = roundId;
+                        latestRoundData = new Dictionary<string, object>();
 
-    //                     foreach (var child in roundSnapshot.Children)
-    //                     {
-    //                         latestRoundData[child.Key] = child.Value;
-    //                     }
-    //                 }
-    //             }
+                        foreach (var child in roundSnapshot.Children)
+                        {
+                            latestRoundData[child.Key] = child.Value;
+                        }
+                    }
+                }
 
-    //             CurrentRoundId = latestRoundId;
-    //             CurrentRoundData = latestRoundData;
+                CurrentRoundId = latestRoundId;
+                CurrentRoundData = latestRoundData;
 
-    //             Debug.Log($"Current Round ID: {CurrentRoundId}");
-    //             Debug.Log($"Current Round Data: {CurrentRoundData}");
-    //         }
-    //         else
-    //         {
-    //             Debug.LogWarning("No rounds found for this room.");
-    //         }
-    //     };
-    // }
+                Debug.Log($"Current Round ID: {CurrentRoundId}");
+                Debug.Log($"Current Round Data: {CurrentRoundData}");
+            }
+            else
+            {
+                Debug.LogWarning("No rounds found for this room.");
+            }
+        };
+    }
 }
