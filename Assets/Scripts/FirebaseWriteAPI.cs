@@ -1,4 +1,5 @@
 using Firebase.Database;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -18,7 +19,13 @@ public class FirebaseWriteAPI: MonoBehaviour
         return random.Next(10000, 99999).ToString();
     }
 
-    public async Task<string> CreateRoomAsync()
+    private long GetUnixTimestamp()
+    {
+        // Return the current Unix timestamp in seconds
+        return DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+    }
+
+    public async Task<string> CreateRoomAsync(string playerName)
     {
         string roomId = GenerateFiveDigitRoomId();
 
@@ -34,17 +41,26 @@ public class FirebaseWriteAPI: MonoBehaviour
                 snapshot = await databaseReference.Child("rooms").Child(roomId).GetValueAsync();
             }
 
+            // Create the player data
+            var playerId = databaseReference.Child("rooms").Child(roomId).Child("players").Push().Key;
+            var playerData = new Dictionary<string, object>
+            {
+                { "name", playerName },
+                { "joinTime", GetUnixTimestamp() } // ISO 8601 format
+            };
+
             // Initial room structure
             var roomData = new Dictionary<string, object>
             {
-                { "players", new Dictionary<string, object>() }, // Empty players initially
+                { "hasGameStarted", false },
+                { "players", new Dictionary<string, object> { { playerId, playerData } } }, // Add the player
                 { "rounds", new List<object>() } // Empty rounds initially
             };
 
             // Write the new room to the database
             await databaseReference.Child("rooms").Child(roomId).SetValueAsync(roomData);
 
-            Debug.Log($"Room {roomId} created successfully.");
+            Debug.Log($"Room {roomId} created successfully with player {playerName}.");
             return roomId; // Return the generated room ID
         }
         catch (System.Exception ex)
@@ -52,7 +68,6 @@ public class FirebaseWriteAPI: MonoBehaviour
             Debug.LogError($"Failed to create room: {ex.Message}");
             return null; // Return null if the operation fails
         }
-
     }
 
     public async Task<string> JoinRoomAsync(string roomId, string playerName)
@@ -65,7 +80,7 @@ public class FirebaseWriteAPI: MonoBehaviour
             var playerData = new Dictionary<string, object>
             {
                 { "name", playerName },
-                { "joinTime", System.DateTime.UtcNow.ToString("o") } // ISO 8601 format
+                { "joinTime", GetUnixTimestamp() } // ISO 8601 format
             };
 
             // Add the player to the specified room
