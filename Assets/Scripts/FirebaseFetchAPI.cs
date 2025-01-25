@@ -1,15 +1,42 @@
 using UnityEngine;
-
 using Firebase.Database;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Firebase.Extensions;
 
-public class FirebaseAPIFetch: MonoBehaviour
+public class FirebaseAPIFetch : MonoBehaviour
 {
     private DatabaseReference databaseReference;
 
-    void Start(){
+    void Start()
+    {
+        // FirebaseDatabase.DefaultInstance.RootReference.KeepSynced(true);
         databaseReference = FirebaseDatabase.DefaultInstance.RootReference;
+        databaseReference.KeepSynced(true);
+
+        GetAllPlayersAsync("73882").ContinueWithOnMainThread(task =>
+        {
+            if (task.IsCompletedSuccessfully)
+            {
+                var result = task.Result;
+                Debug.Log($"Thanasis Players: {result}");
+
+                // Debug.Log($"Thanasis Players: {task.Result["id"]}");
+                // convert to dictionary
+                foreach (var playerSnapshot in task.Result)
+                {
+                    string playerId = playerSnapshot.Key;
+                    var playerData = new Dictionary<string, object>();
+                    // console log print dictionary
+                    Debug.Log($"Thanasis Player: {playerData["name"]}");
+                    Debug.Log($"Thanasis Player Data: {playerData["joinTime"]}");
+                }
+            }
+            else
+            {
+                Debug.LogError("Failed to fetch players: " + task.Exception?.Message);
+            }
+        });
     }
 
     public async Task<bool?> GetHasGameStartedAsync(string roomId)
@@ -17,7 +44,8 @@ public class FirebaseAPIFetch: MonoBehaviour
         bool? hasGameStarted = null;
         try
         {
-            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("hasGameStarted").GetValueAsync();
+            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("hasGameStarted")
+                .GetValueAsync();
             if (snapshot.Exists)
             {
                 hasGameStarted = bool.Parse(snapshot.Value.ToString());
@@ -27,6 +55,7 @@ public class FirebaseAPIFetch: MonoBehaviour
         {
             Debug.LogError($"Failed to fetch hasGameStarted for room {roomId}: {ex.Message}");
         }
+
         return hasGameStarted;
     }
 
@@ -36,10 +65,29 @@ public class FirebaseAPIFetch: MonoBehaviour
 
         try
         {
-            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("players").GetValueAsync();
+            DataSnapshot snapshot =
+                await databaseReference.Child("rooms").Child(roomId).Child("players").GetValueAsync();
 
             if (snapshot.Exists)
             {
+                //Log whole snapshot
+                Debug.Log($"Thanasis Snapshot: {snapshot.GetRawJsonValue()}");
+                
+                // var playersDictionary = (snapshot.Value as Dictionary<string, object>)["players"];
+                //
+                // // Print dictionary snapshot.Value
+                // foreach (var eachKey in playersDictionary as Dictionary<string, object>)
+                // {
+                //     Debug.Log($"Thanasis Snapshot inner: {eachKey.Key}");
+                //     
+                //     var innerPlayerValues = eachKey.Value as Dictionary<string, object>;
+                //     foreach (var innerPlayerValue in innerPlayerValues)
+                //     {
+                //         Debug.Log($"Thanasis Snapshot inner inner key: {innerPlayerValue.Key}");
+                //         Debug.Log($"Thanasis Snapshot inner inner value: {innerPlayerValue.Value}");
+                //     }
+                // }
+                
                 foreach (var playerSnapshot in snapshot.Children)
                 {
                     string playerId = playerSnapshot.Key;
@@ -67,7 +115,8 @@ public class FirebaseAPIFetch: MonoBehaviour
         try
         {
             // Get the rounds from the database
-            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds").GetValueAsync();
+            DataSnapshot snapshot =
+                await databaseReference.Child("rooms").Child(roomId).Child("rounds").GetValueAsync();
 
             if (!snapshot.Exists)
             {
@@ -99,12 +148,14 @@ public class FirebaseAPIFetch: MonoBehaviour
             return null; // Return null if an error occurs
         }
     }
+
     public async Task<Dictionary<string, string>> GetAllActionSelectionsAsync(string roomId, int roundId)
     {
         var actionSelections = new Dictionary<string, string>();
         try
         {
-            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("actionSelection").GetValueAsync();
+            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds")
+                .Child(roundId.ToString()).Child("actionSelection").GetValueAsync();
             if (snapshot.Exists)
             {
                 foreach (var child in snapshot.Children)
@@ -117,6 +168,7 @@ public class FirebaseAPIFetch: MonoBehaviour
         {
             Debug.LogError($"Failed to fetch action selections: {ex.Message}");
         }
+
         return actionSelections;
     }
 
@@ -125,7 +177,8 @@ public class FirebaseAPIFetch: MonoBehaviour
         string actionSelection = null;
         try
         {
-            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("actionSelection").Child(playerId).GetValueAsync();
+            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds")
+                .Child(roundId.ToString()).Child("actionSelection").Child(playerId).GetValueAsync();
             if (snapshot.Exists)
             {
                 actionSelection = snapshot.Value.ToString();
@@ -135,6 +188,7 @@ public class FirebaseAPIFetch: MonoBehaviour
         {
             Debug.LogError($"Failed to fetch action selection for player {playerId}: {ex.Message}");
         }
+
         return actionSelection;
     }
 
@@ -143,7 +197,8 @@ public class FirebaseAPIFetch: MonoBehaviour
         var availableOpponents = new Dictionary<string, string>();
         try
         {
-            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("availableOpponents").GetValueAsync();
+            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds")
+                .Child(roundId.ToString()).Child("availableOpponents").GetValueAsync();
             if (snapshot.Exists)
             {
                 foreach (var child in snapshot.Children)
@@ -156,6 +211,7 @@ public class FirebaseAPIFetch: MonoBehaviour
         {
             Debug.LogError($"Failed to fetch available opponents: {ex.Message}");
         }
+
         return availableOpponents;
     }
 
@@ -164,7 +220,8 @@ public class FirebaseAPIFetch: MonoBehaviour
         string availableOpponent = null;
         try
         {
-            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("availableOpponents").Child(playerId).GetValueAsync();
+            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds")
+                .Child(roundId.ToString()).Child("availableOpponents").Child(playerId).GetValueAsync();
             if (snapshot.Exists)
             {
                 availableOpponent = snapshot.Value.ToString();
@@ -174,6 +231,7 @@ public class FirebaseAPIFetch: MonoBehaviour
         {
             Debug.LogError($"Failed to fetch available opponent for player {playerId}: {ex.Message}");
         }
+
         return availableOpponent;
     }
 
@@ -182,7 +240,8 @@ public class FirebaseAPIFetch: MonoBehaviour
         var hasLockedActions = new Dictionary<string, bool>();
         try
         {
-            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("hasLockedAction").GetValueAsync();
+            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds")
+                .Child(roundId.ToString()).Child("hasLockedAction").GetValueAsync();
             if (snapshot.Exists)
             {
                 foreach (var child in snapshot.Children)
@@ -195,6 +254,7 @@ public class FirebaseAPIFetch: MonoBehaviour
         {
             Debug.LogError($"Failed to fetch hasLockedAction values: {ex.Message}");
         }
+
         return hasLockedActions;
     }
 
@@ -203,7 +263,8 @@ public class FirebaseAPIFetch: MonoBehaviour
         bool? hasLockedAction = null;
         try
         {
-            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("hasLockedAction").Child(playerId).GetValueAsync();
+            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds")
+                .Child(roundId.ToString()).Child("hasLockedAction").Child(playerId).GetValueAsync();
             if (snapshot.Exists)
             {
                 hasLockedAction = bool.Parse(snapshot.Value.ToString());
@@ -213,6 +274,7 @@ public class FirebaseAPIFetch: MonoBehaviour
         {
             Debug.LogError($"Failed to fetch hasLockedAction for player {playerId}: {ex.Message}");
         }
+
         return hasLockedAction;
     }
 
@@ -221,7 +283,8 @@ public class FirebaseAPIFetch: MonoBehaviour
         var isReadyValues = new Dictionary<string, bool>();
         try
         {
-            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("isReady").GetValueAsync();
+            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds")
+                .Child(roundId.ToString()).Child("isReady").GetValueAsync();
             if (snapshot.Exists)
             {
                 foreach (var child in snapshot.Children)
@@ -234,6 +297,7 @@ public class FirebaseAPIFetch: MonoBehaviour
         {
             Debug.LogError($"Failed to fetch isReady values: {ex.Message}");
         }
+
         return isReadyValues;
     }
 
@@ -242,7 +306,8 @@ public class FirebaseAPIFetch: MonoBehaviour
         bool? isReady = null;
         try
         {
-            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("isReady").Child(playerId).GetValueAsync();
+            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds")
+                .Child(roundId.ToString()).Child("isReady").Child(playerId).GetValueAsync();
             if (snapshot.Exists)
             {
                 isReady = bool.Parse(snapshot.Value.ToString());
@@ -252,6 +317,7 @@ public class FirebaseAPIFetch: MonoBehaviour
         {
             Debug.LogError($"Failed to fetch isReady for player {playerId}: {ex.Message}");
         }
+
         return isReady;
     }
 
@@ -260,7 +326,8 @@ public class FirebaseAPIFetch: MonoBehaviour
         var scores = new Dictionary<string, int>();
         try
         {
-            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("scores").GetValueAsync();
+            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds")
+                .Child(roundId.ToString()).Child("scores").GetValueAsync();
             if (snapshot.Exists)
             {
                 foreach (var child in snapshot.Children)
@@ -273,6 +340,7 @@ public class FirebaseAPIFetch: MonoBehaviour
         {
             Debug.LogError($"Failed to fetch scores: {ex.Message}");
         }
+
         return scores;
     }
 
@@ -281,7 +349,8 @@ public class FirebaseAPIFetch: MonoBehaviour
         int? score = null;
         try
         {
-            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("scores").Child(playerName).GetValueAsync();
+            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds")
+                .Child(roundId.ToString()).Child("scores").Child(playerName).GetValueAsync();
             if (snapshot.Exists)
             {
                 score = int.Parse(snapshot.Value.ToString());
@@ -291,8 +360,7 @@ public class FirebaseAPIFetch: MonoBehaviour
         {
             Debug.LogError($"Failed to fetch score for player {playerName}: {ex.Message}");
         }
+
         return score;
     }
-
 }
-

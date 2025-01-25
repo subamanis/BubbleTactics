@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using Firebase.Database;
+using Firebase.Extensions;
 using TMPro;
 using UnityEngine;
 
@@ -20,10 +22,11 @@ public class UserActions: MonoBehaviour
         databaseReference = FirebaseDatabase.DefaultInstance.RootReference;
         this.firebaseFetchAPI = this.GetComponent<FirebaseAPIFetch>();
         this.firebaseWriteAPI = this.GetComponent<FirebaseWriteAPI>();
+        
     }
 
     public void UserClickedCreateRoom () {
-        this.firebaseWriteAPI.CreateRoomAsync(playerNameInput.text).ContinueWith(task => {
+        this.firebaseWriteAPI.CreateRoomAsync(playerNameInput.text).ContinueWithOnMainThread(task => {
             if (task.IsCompletedSuccessfully)
             {
                 var result = task.Result;
@@ -66,51 +69,53 @@ public class UserActions: MonoBehaviour
 
     private void ObserveRounds(string roomId)
     {
-        Debug.LogError($"observer 1");
+        Debug.Log($"observer 1");
 
         DatabaseReference roundsRef = databaseReference.Child("rooms").Child(roomId).Child("rounds");
 
-        Debug.LogError($"observer 2");
-        roundsRef.ValueChanged += (sender, args) =>
+        Debug.Log($"observer 2");
+        roundsRef.ValueChanged += RoundsObserver;
+    }
+
+    private void RoundsObserver(object _, ValueChangedEventArgs args)
+    {
+        Debug.Log($"observer 3");
+        if (args.DatabaseError != null)
         {
-        Debug.LogError($"observer 3");
-            if (args.DatabaseError != null)
-            {
-                Debug.LogError($"Failed to observe rounds: {args.DatabaseError.Message}");
-                return;
-            }
+            Debug.LogError($"Failed to observe rounds: {args.DatabaseError.Message}");
+            return;
+        }
 
-            if (args.Snapshot.Exists)
-            {
-                // Find the latest round (highest round ID)
-                int latestRoundId = -1;
-                Dictionary<string, object> latestRoundData = null;
+        if (args.Snapshot.Exists)
+        {
+            // Find the latest round (highest round ID)
+            int latestRoundId = -1;
+            Dictionary<string, object> latestRoundData = null;
 
-                foreach (var roundSnapshot in args.Snapshot.Children)
+            foreach (var roundSnapshot in args.Snapshot.Children)
+            {
+                int roundId = int.Parse(roundSnapshot.Key);
+                if (roundId > latestRoundId)
                 {
-                    int roundId = int.Parse(roundSnapshot.Key);
-                    if (roundId > latestRoundId)
-                    {
-                        latestRoundId = roundId;
-                        latestRoundData = new Dictionary<string, object>();
+                    latestRoundId = roundId;
+                    latestRoundData = new Dictionary<string, object>();
 
-                        foreach (var child in roundSnapshot.Children)
-                        {
-                            latestRoundData[child.Key] = child.Value;
-                        }
+                    foreach (var child in roundSnapshot.Children)
+                    {
+                        latestRoundData[child.Key] = child.Value;
                     }
                 }
-
-                CurrentRoundId = latestRoundId;
-                CurrentRoundData = latestRoundData;
-
-                Debug.Log($"Current Round ID: {CurrentRoundId}");
-                Debug.Log($"Current Round Data: {CurrentRoundData}");
             }
-            else
-            {
-                Debug.LogWarning("No rounds found for this room.");
-            }
-        };
+
+            CurrentRoundId = latestRoundId;
+            CurrentRoundData = latestRoundData;
+
+            Debug.Log($"Current Round ID: {CurrentRoundId}");
+            Debug.Log($"Current Round Data: {CurrentRoundData}");
+        }
+        else
+        {
+            Debug.LogWarning("No rounds found for this room.");
+        }
     }
 }
