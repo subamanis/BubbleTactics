@@ -4,9 +4,13 @@ using Firebase.Database;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-public class FirebaseAPIFetch
+public class FirebaseAPIFetch: MonoBehaviour
 {
-    private readonly DatabaseReference databaseReference = FirebaseDatabase.DefaultInstance.RootReference;
+    private DatabaseReference databaseReference;
+
+    void Start(){
+        databaseReference = FirebaseDatabase.DefaultInstance.RootReference;
+    }
 
     public async Task<bool?> GetHasGameStartedAsync(string roomId)
     {

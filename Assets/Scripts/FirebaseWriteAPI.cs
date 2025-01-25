@@ -3,14 +3,37 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
 
-public class FirebaseWriteAPI
+public class FirebaseWriteAPI: MonoBehaviour
 {
-    private readonly DatabaseReference databaseReference = FirebaseDatabase.DefaultInstance.RootReference;
+    private DatabaseReference databaseReference;
 
-    public async Task CreateRoomAsync(string roomId)
+    void Start(){
+        databaseReference = FirebaseDatabase.DefaultInstance.RootReference;
+    }
+
+    private string GenerateFiveDigitRoomId()
     {
+        // Generate a random 5-digit number
+        System.Random random = new System.Random();
+        return random.Next(10000, 99999).ToString();
+    }
+
+    public async Task<string> CreateRoomAsync()
+    {
+        string roomId = GenerateFiveDigitRoomId();
+
         try
         {
+            // Check if the room ID already exists in the database
+            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).GetValueAsync();
+
+            // If the room ID already exists, regenerate and try again (handle collisions)
+            while (snapshot.Exists)
+            {
+                roomId = GenerateFiveDigitRoomId();
+                snapshot = await databaseReference.Child("rooms").Child(roomId).GetValueAsync();
+            }
+
             // Initial room structure
             var roomData = new Dictionary<string, object>
             {
@@ -23,11 +46,14 @@ public class FirebaseWriteAPI
             await databaseReference.Child("rooms").Child(roomId).SetValueAsync(roomData);
 
             Debug.Log($"Room {roomId} created successfully.");
+            return roomId; // Return the generated room ID
         }
         catch (System.Exception ex)
         {
-            Debug.LogError($"Failed to create room {roomId}: {ex.Message}");
+            Debug.LogError($"Failed to create room: {ex.Message}");
+            return null; // Return null if the operation fails
         }
+
     }
 
     public async Task<string> JoinRoomAsync(string roomId, string playerName)
