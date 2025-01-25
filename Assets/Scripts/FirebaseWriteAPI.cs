@@ -37,7 +37,6 @@ public class FirebaseWriteAPI: MonoBehaviour
             // Initial room structure
             var roomData = new Dictionary<string, object>
             {
-                { "hasGameStarted", false },
                 { "players", new Dictionary<string, object>() }, // Empty players initially
                 { "rounds", new List<object>() } // Empty rounds initially
             };
@@ -80,21 +79,6 @@ public class FirebaseWriteAPI: MonoBehaviour
         {
             Debug.LogError($"Failed to add player {playerName} to room {roomId}: {ex.Message}");
             return null;
-        }
-    }
-
-    public async Task UpdateHasGameStartedAsync(string roomId, bool hasGameStarted)
-    {
-        try
-        {
-            // Update the hasGameStarted field
-            await databaseReference.Child("rooms").Child(roomId).Child("hasGameStarted").SetValueAsync(hasGameStarted);
-
-            Debug.Log($"Updated hasGameStarted to {hasGameStarted} for room {roomId}.");
-        }
-        catch (System.Exception ex)
-        {
-            Debug.LogError($"Failed to update hasGameStarted for room {roomId}: {ex.Message}");
         }
     }
 
