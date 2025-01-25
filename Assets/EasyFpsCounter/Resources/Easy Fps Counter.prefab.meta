@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 20d607f9a0588dc4499d11efb7a8ae5c
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 130203
+  packageName: Easy FPS Counter
+  packageVersion: 1.0
+  assetPath: Assets/EasyFpsCounter/Resources/Easy Fps Counter.prefab
+  uploadId: 271229

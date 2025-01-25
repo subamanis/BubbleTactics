@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: ee1d2ce492593cd4992d3f187109dc59
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 130203
+  packageName: Easy FPS Counter
+  packageVersion: 1.0
+  assetPath: Assets/EasyFpsCounter/Scenes/Demo - EFPSC.unity
+  uploadId: 271229

@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: dda7fb6f6d578f24391ab9b9c8d44ff8
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 130203
+  packageName: Easy FPS Counter
+  packageVersion: 1.0
+  assetPath: Assets/EasyFpsCounter/Scripts/EasyFpsCounter.cs
+  uploadId: 271229

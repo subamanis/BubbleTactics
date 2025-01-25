@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: c524ced6433a90440a6b0cfec87ea9b3
+TextScriptImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 130203
+  packageName: Easy FPS Counter
+  packageVersion: 1.0
+  assetPath: Assets/EasyFpsCounter/Fonts/READ ME (Square.ttf).txt
+  uploadId: 271229
