@@ -25,7 +25,7 @@ public class FirebaseWriteAPI: MonoBehaviour
         return DateTimeOffset.UtcNow.ToUnixTimeSeconds();
     }
 
-    public async Task<string> CreateRoomAsync(string playerName)
+    public async Task<(string roomId, string playerId)> CreateRoomAsync(string playerName)
     {
         string roomId = GenerateFiveDigitRoomId();
 
@@ -41,12 +41,20 @@ public class FirebaseWriteAPI: MonoBehaviour
                 snapshot = await databaseReference.Child("rooms").Child(roomId).GetValueAsync();
             }
 
-            // Create the player data
+            // Generate a unique playerId for the player
             var playerId = databaseReference.Child("rooms").Child(roomId).Child("players").Push().Key;
+
+            // Create the player data
             var playerData = new Dictionary<string, object>
             {
                 { "name", playerName },
-                { "joinTime", GetUnixTimestamp() } // ISO 8601 format
+                { "joinTime", GetUnixTimestamp() } // Unix timestamp for joinTime
+            };
+
+            // Create the isReady dictionary for the first round
+            var isReady = new Dictionary<string, object>
+            {
+                { playerId, false } // Initialize isReady as false for the player
             };
 
             // Initial room structure
@@ -54,46 +62,63 @@ public class FirebaseWriteAPI: MonoBehaviour
             {
                 { "hasGameStarted", false },
                 { "players", new Dictionary<string, object> { { playerId, playerData } } }, // Add the player
-                { "rounds", new List<object>() } // Empty rounds initially
+                {
+                    "rounds",
+                    new Dictionary<string, object>
+                    {
+                        {
+                            "0", // First round with ID 0
+                            new Dictionary<string, object>
+                            {
+                                { "isReady", isReady } // Add isReady to the first round
+                            }
+                        }
+                    }
+                }
             };
 
             // Write the new room to the database
             await databaseReference.Child("rooms").Child(roomId).SetValueAsync(roomData);
 
-            Debug.Log($"Room {roomId} created successfully with player {playerName}.");
-            return roomId; // Return the generated room ID
+            Debug.Log($"Room {roomId} created successfully with player {playerName} (ID: {playerId}) and the first round initialized.");
+            return (roomId, playerId); // Return both the roomId and playerId
         }
         catch (System.Exception ex)
         {
             Debug.LogError($"Failed to create room: {ex.Message}");
-            return null; // Return null if the operation fails
+            return (null, null); // Return nulls if the operation fails
         }
     }
 
     public async Task<string> JoinRoomAsync(string roomId, string playerName)
     {
-        string playerId = databaseReference.Child("rooms").Child(roomId).Child("players").Push().Key; // Auto-generate a unique ID
-
         try
         {
+            // Generate a unique playerId for the new player
+            var playerId = databaseReference.Child("rooms").Child(roomId).Child("players").Push().Key;
+
             // Create the player data
             var playerData = new Dictionary<string, object>
             {
                 { "name", playerName },
-                { "joinTime", GetUnixTimestamp() } // ISO 8601 format
+                { "joinTime", GetUnixTimestamp() } // Unix timestamp for joinTime
             };
 
-            // Add the player to the specified room
+            // Add the player to the players node
             await databaseReference.Child("rooms").Child(roomId).Child("players").Child(playerId).SetValueAsync(playerData);
 
-            Debug.Log($"Player {playerName} (ID: {playerId}) joined room {roomId} successfully.");
+            Debug.Log($"Player {playerName} (ID: {playerId}) joined room {roomId}.");
 
-            return playerId; // Return the generated player ID
+            // Update the "isReady" field in the first round (roundId = 0)
+            await databaseReference.Child("rooms").Child(roomId).Child("rounds").Child("0").Child("isReady").Child(playerId).SetValueAsync(false);
+
+            Debug.Log($"Player {playerId} added to isReady for round 0 in room {roomId}.");
+            return playerId; // Return the generated playerId
         }
         catch (System.Exception ex)
         {
-            Debug.LogError($"Failed to add player {playerName} to room {roomId}: {ex.Message}");
-            return null;
+            Debug.LogError($"Failed to join room {roomId} for player {playerName}: {ex.Message}");
+            return null; // Return null if the operation fails
         }
     }
 

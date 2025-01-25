@@ -1,21 +1,100 @@
+using System.Collections.Generic;
+using Firebase.Database;
 using TMPro;
 using UnityEngine;
 
 public class UserActions: MonoBehaviour
 {
+    private DatabaseReference databaseReference;
+    private FirebaseAPIFetch firebaseFetchAPI;
     private FirebaseWriteAPI firebaseWriteAPI;
     public TMP_InputField roomIdInput;
     public TMP_InputField playerNameInput;
+    private string currentPlayerId;
+    private string currentRoomId;
+    public int CurrentRoundId { get; private set; } // Store the current round ID
+    public Dictionary<string, object> CurrentRoundData { get; private set; } // Store the current round's data
+
 
     void Start() {
+        databaseReference = FirebaseDatabase.DefaultInstance.RootReference;
+        // ObserveRounds(currentRoomId);
+        this.firebaseFetchAPI = this.GetComponent<FirebaseAPIFetch>();
         this.firebaseWriteAPI = this.GetComponent<FirebaseWriteAPI>();
     }
 
     public void UserClickedCreateRoom () {
-        this.firebaseWriteAPI.CreateRoomAsync(playerNameInput.text).ContinueWith(task => {});
+        this.firebaseWriteAPI.CreateRoomAsync(playerNameInput.text).ContinueWith(task => {
+            if (task.IsCompletedSuccessfully)
+            {
+                var result = task.Result;
+                currentRoomId = result.roomId;
+                currentPlayerId = result.playerId;
+
+                Debug.Log($"Room created with ID: {currentRoomId}, Player ID: {currentPlayerId}");
+            }
+            else
+            {
+                Debug.LogError("Failed to create room: " + task.Exception?.Message);
+            }
+        });
     }
 
     public void UserClickedJoinRoom () {
         this.firebaseWriteAPI.JoinRoomAsync(roomIdInput.text, playerNameInput.text).ContinueWith(task => {});
     }
+
+    public void UserClickedReady () {
+        this.firebaseWriteAPI.UpdateIsReadyForPlayerAsync(currentRoomId, CurrentRoundId, currentPlayerId, true).ContinueWith(task => {});
+    }
+
+    // private void ObserveRounds(string roomId)
+    // {
+    //     Debug.LogError($"observer 1");
+
+    //     DatabaseReference roundsRef = databaseReference.Child("rooms").Child(roomId).Child("rounds");
+
+    //     Debug.LogError($"observer 2");
+    //     roundsRef.ValueChanged += (sender, args) =>
+    //     {
+    //     Debug.LogError($"observer 3");
+    //         if (args.DatabaseError != null)
+    //         {
+    //             Debug.LogError($"Failed to observe rounds: {args.DatabaseError.Message}");
+    //             return;
+    //         }
+
+    //         if (args.Snapshot.Exists)
+    //         {
+    //             // Find the latest round (highest round ID)
+    //             int latestRoundId = -1;
+    //             Dictionary<string, object> latestRoundData = null;
+
+    //             foreach (var roundSnapshot in args.Snapshot.Children)
+    //             {
+    //                 int roundId = int.Parse(roundSnapshot.Key);
+    //                 if (roundId > latestRoundId)
+    //                 {
+    //                     latestRoundId = roundId;
+    //                     latestRoundData = new Dictionary<string, object>();
+
+    //                     foreach (var child in roundSnapshot.Children)
+    //                     {
+    //                         latestRoundData[child.Key] = child.Value;
+    //                     }
+    //                 }
+    //             }
+
+    //             CurrentRoundId = latestRoundId;
+    //             CurrentRoundData = latestRoundData;
+
+    //             Debug.Log($"Current Round ID: {CurrentRoundId}");
+    //             Debug.Log($"Current Round Data: {CurrentRoundData}");
+    //         }
+    //         else
+    //         {
+    //             Debug.LogWarning("No rounds found for this room.");
+    //         }
+    //     };
+    // }
 }

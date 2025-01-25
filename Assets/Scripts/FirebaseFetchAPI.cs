@@ -61,6 +61,44 @@ public class FirebaseAPIFetch: MonoBehaviour
 
         return players;
     }
+
+    public async Task<Dictionary<string, Dictionary<string, object>>> GetRoundsAsync(string roomId)
+    {
+        try
+        {
+            // Get the rounds from the database
+            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds").GetValueAsync();
+
+            if (!snapshot.Exists)
+            {
+                Debug.LogWarning($"No rounds found for room {roomId}.");
+                return new Dictionary<string, Dictionary<string, object>>();
+            }
+
+            // Parse the snapshot into a dictionary
+            var rounds = new Dictionary<string, Dictionary<string, object>>();
+            foreach (var roundSnapshot in snapshot.Children)
+            {
+                var roundId = roundSnapshot.Key;
+                var roundData = new Dictionary<string, object>();
+
+                foreach (var child in roundSnapshot.Children)
+                {
+                    roundData[child.Key] = child.Value;
+                }
+
+                rounds[roundId] = roundData;
+            }
+
+            Debug.Log($"Successfully fetched rounds for room {roomId}.");
+            return rounds;
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"Failed to fetch rounds for room {roomId}: {ex.Message}");
+            return null; // Return null if an error occurs
+        }
+    }
     public async Task<Dictionary<string, string>> GetAllActionSelectionsAsync(string roomId, int roundId)
     {
         var actionSelections = new Dictionary<string, string>();
