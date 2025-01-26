@@ -6,7 +6,9 @@ using UnityEngine;
 
 public class FirebaseWriteAPI: MonoBehaviour
 {
-    public DatabaseReference databaseReference { get; set; }
+    public const string PlayerNameSeparator = "||";
+
+    public DatabaseReference DatabaseReference { get; set; }
 
     private string GenerateFiveDigitRoomId()
     {
@@ -28,17 +30,17 @@ public class FirebaseWriteAPI: MonoBehaviour
         try
         {
             // Check if the room ID already exists in the database
-            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).GetValueAsync();
+            DataSnapshot snapshot = await DatabaseReference.Child("rooms").Child(roomId).GetValueAsync();
 
             // If the room ID already exists, regenerate and try again (handle collisions)
             while (snapshot.Exists)
             {
                 roomId = GenerateFiveDigitRoomId();
-                snapshot = await databaseReference.Child("rooms").Child(roomId).GetValueAsync();
+                snapshot = await DatabaseReference.Child("rooms").Child(roomId).GetValueAsync();
             }
 
             // Generate a unique playerId for the player
-            var playerId = databaseReference.Child("rooms").Child(roomId).Child("players").Push().Key;
+            var playerId = DatabaseReference.Child("rooms").Child(roomId).Child("players").Push().Key;
 
             // Create the player data
             var playerData = new Dictionary<string, object>
@@ -74,7 +76,7 @@ public class FirebaseWriteAPI: MonoBehaviour
             };
 
             // Write the new room to the database
-            await databaseReference.Child("rooms").Child(roomId).SetValueAsync(roomData);
+            await DatabaseReference.Child("rooms").Child(roomId).SetValueAsync(roomData);
 
             Debug.Log($"Room {roomId} created successfully with player {playerName} (ID: {playerId}) and the first round initialized.");
             return (roomId, playerId); // Return both the roomId and playerId
@@ -91,7 +93,7 @@ public class FirebaseWriteAPI: MonoBehaviour
         try
         {
             // Generate a unique playerId for the new player
-            var playerId = databaseReference.Child("rooms").Child(roomId).Child("players").Push().Key;
+            var playerId = DatabaseReference.Child("rooms").Child(roomId).Child("players").Push().Key;
 
             // Create the player data
             var playerData = new Dictionary<string, object>
@@ -101,12 +103,12 @@ public class FirebaseWriteAPI: MonoBehaviour
             };
 
             // Add the player to the players node
-            await databaseReference.Child("rooms").Child(roomId).Child("players").Child(playerId).SetValueAsync(playerData);
+            await DatabaseReference.Child("rooms").Child(roomId).Child("players").Child(playerId).SetValueAsync(playerData);
 
             Debug.Log($"Player {playerName} (ID: {playerId}) joined room {roomId}.");
 
             // Update the "isReady" field in the first round (roundId = 0)
-            await databaseReference.Child("rooms").Child(roomId).Child("rounds").Child("0").Child("isReady").Child(playerId).SetValueAsync(false);
+            await DatabaseReference.Child("rooms").Child(roomId).Child("rounds").Child("0").Child("isReady").Child(playerId).SetValueAsync(false);
 
             Debug.Log($"Player {playerId} added to isReady for round 0 in room {roomId}.");
             return playerId; // Return the generated playerId
@@ -122,7 +124,7 @@ public class FirebaseWriteAPI: MonoBehaviour
     {
         try
         {
-            DatabaseReference roundsRef = databaseReference.Child("rooms").Child(roomId).Child("rounds");
+            DatabaseReference roundsRef = DatabaseReference.Child("rooms").Child(roomId).Child("rounds");
 
             // Get the existing rounds to determine the new round ID
             DataSnapshot roundsSnapshot = await roundsRef.GetValueAsync();
@@ -156,7 +158,7 @@ public class FirebaseWriteAPI: MonoBehaviour
             }
             else // Default scores for the first round
             {
-                DataSnapshot playersSnapshot = await databaseReference.Child("rooms").Child(roomId).Child("players").GetValueAsync();
+                DataSnapshot playersSnapshot = await DatabaseReference.Child("rooms").Child(roomId).Child("players").GetValueAsync();
                 foreach (var player in playersSnapshot.Children)
                 {
                     string playerName = player.Child("name").Value.ToString();
@@ -187,24 +189,11 @@ public class FirebaseWriteAPI: MonoBehaviour
         }
     }
 
-    public async Task UpdateAvailableOpponentsAsync(string roomId, int roundId, Dictionary<string, string> availableOpponents)
+    public async Task UpdateAvailableOpponentAsync(string roomId, int roundId, string playerId, string[] opponents)
     {
         try
         {
-            await databaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("availableOpponents").SetValueAsync(availableOpponents);
-            Debug.Log($"Updated availableOpponents for round {roundId} in room {roomId}.");
-        }
-        catch (System.Exception ex)
-        {
-            Debug.LogError($"Failed to update availableOpponents for round {roundId} in room {roomId}: {ex.Message}");
-        }
-    }
-
-    public async Task UpdateAvailableOpponentAsync(string roomId, int roundId, string playerId, string opponents)
-    {
-        try
-        {
-            await databaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("availableOpponents").Child(playerId).SetValueAsync(opponents);
+            await DatabaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("availableOpponents").Child(playerId).SetValueAsync(string.Join(PlayerNameSeparator, opponents));
             Debug.Log($"Updated availableOpponent for player {playerId} in round {roundId} in room {roomId}.");
         }
         catch (System.Exception ex)
@@ -217,7 +206,7 @@ public class FirebaseWriteAPI: MonoBehaviour
     {
         try
         {
-            await databaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("actionSelection").SetValueAsync(actionSelections);
+            await DatabaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("actionSelection").SetValueAsync(actionSelections);
             Debug.Log($"Updated actionSelections for round {roundId} in room {roomId}.");
         }
         catch (System.Exception ex)
@@ -226,63 +215,11 @@ public class FirebaseWriteAPI: MonoBehaviour
         }
     }
 
-    public async Task UpdateActionSelectionAsync(string roomId, int roundId, string playerId, string action)
-    {
-        try
-        {
-            await databaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("actionSelection").Child(playerId).SetValueAsync(action);
-            Debug.Log($"Updated actionSelection for player {playerId} in round {roundId} in room {roomId}.");
-        }
-        catch (System.Exception ex)
-        {
-            Debug.LogError($"Failed to update actionSelection for player {playerId} in round {roundId} in room {roomId}: {ex.Message}");
-        }
-    }
-
-    public async Task UpdateHasLockedActionsAsync(string roomId, int roundId, Dictionary<string, bool> hasLockedActions)
-    {
-        try
-        {
-            await databaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("hasLockedAction").SetValueAsync(hasLockedActions);
-            Debug.Log($"Updated hasLockedActions for round {roundId} in room {roomId}.");
-        }
-        catch (System.Exception ex)
-        {
-            Debug.LogError($"Failed to update hasLockedActions for round {roundId} in room {roomId}: {ex.Message}");
-        }
-    }
-
-    public async Task UpdateHasLockedActionAsync(string roomId, int roundId, string playerId, bool hasLocked)
-    {
-        try
-        {
-            await databaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("hasLockedAction").Child(playerId).SetValueAsync(hasLocked);
-            Debug.Log($"Updated hasLockedAction for player {playerId} in round {roundId} in room {roomId}.");
-        }
-        catch (System.Exception ex)
-        {
-            Debug.LogError($"Failed to update hasLockedAction for player {playerId} in round {roundId} in room {roomId}: {ex.Message}");
-        }
-    }
-
-    public async Task UpdateIsReadyAsync(string roomId, int roundId, Dictionary<string, bool> isReady)
-    {
-        try
-        {
-            await databaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("isReady").SetValueAsync(isReady);
-            Debug.Log($"Updated isReady for round {roundId} in room {roomId}.");
-        }
-        catch (System.Exception ex)
-        {
-            Debug.LogError($"Failed to update isReady for round {roundId} in room {roomId}: {ex.Message}");
-        }
-    }
-
     public async Task UpdateIsReadyForPlayerAsync(string roomId, int roundId, string playerId, bool isReady)
     {
         try
         {
-            await databaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("isReady").Child(playerId).SetValueAsync(isReady);
+            await DatabaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("isReady").Child(playerId).SetValueAsync(isReady);
             Debug.Log($"Updated isReady for player {playerId} in round {roundId} in room {roomId}.");
         }
         catch (System.Exception ex)
@@ -295,7 +232,7 @@ public class FirebaseWriteAPI: MonoBehaviour
     {
         try
         {
-            await databaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("scores").SetValueAsync(scores);
+            await DatabaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("scores").SetValueAsync(scores);
             Debug.Log($"Updated scores for round {roundId} in room {roomId}.");
         }
         catch (System.Exception ex)
@@ -308,7 +245,7 @@ public class FirebaseWriteAPI: MonoBehaviour
     {
         try
         {
-            await databaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("scores").Child(playerName).SetValueAsync(score);
+            await DatabaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("scores").Child(playerName).SetValueAsync(score);
             Debug.Log($"Updated score for player {playerName} in round {roundId} in room {roomId}.");
         }
         catch (System.Exception ex)

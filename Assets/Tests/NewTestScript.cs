@@ -10,6 +10,10 @@ public class NewTestScript
     [Test]
     public async Task CreateRoomAndJoinRoom()
     {
+        var playerOneName = "Thanasis-Test";
+        var playerTwoName = "Second-Joiner-Test";
+        var playerThreeName = "Third-Joiner-Test";
+        
         // Create a GameObject
         var gameObject = new GameObject();
 
@@ -17,19 +21,19 @@ public class NewTestScript
         FirebaseWriteAPI firebaseWriteAPI = gameObject.AddComponent<FirebaseWriteAPI>();
         FirebaseAPIFetch firebaseAPIFetch = gameObject.AddComponent<FirebaseAPIFetch>();
         UserActions userActions = gameObject.AddComponent<UserActions>();
-        userActions.Start();
+        var firebaseInit = await userActions.InitFirebase();
+        Assert.IsTrue(firebaseInit);
 
         // Create room and have players join it
-        var roomCreationResult = await firebaseWriteAPI.CreateRoomAsync("Thanasis-Test");
+        var roomCreationResult = await firebaseWriteAPI.CreateRoomAsync(playerOneName);
         Debug.Log("CreateRoomAndJoinRoom Room Created with ID: " + roomCreationResult.roomId +"and user ID: " + roomCreationResult.playerId);
-        var joinRoomResultSecond = await firebaseWriteAPI.JoinRoomAsync(roomCreationResult.roomId, "Second-Joiner-Test");
+        var joinRoomResultSecond = await firebaseWriteAPI.JoinRoomAsync(roomCreationResult.roomId, playerTwoName);
         Debug.Log("CreateRoomAndJoinRoom Room Joined for user ID: " + joinRoomResultSecond);
-        var joinRoomResultThird = await firebaseWriteAPI.JoinRoomAsync(roomCreationResult.roomId, "Third-Joiner-Test");
+        var joinRoomResultThird = await firebaseWriteAPI.JoinRoomAsync(roomCreationResult.roomId, playerThreeName);
         Debug.Log("CreateRoomAndJoinRoom Room Joined for user ID: " + joinRoomResultThird);
         
         // Check ready states
         var allPlayers = await firebaseAPIFetch.GetAllPlayersAsync(roomCreationResult.roomId);
-        Debug.Log("CreateRoomAndJoinRoom All Players: " + allPlayers);
         // Print out each player
         foreach (var player in allPlayers)
         {
@@ -37,24 +41,53 @@ public class NewTestScript
         }
         
         Assert.AreEqual(3, allPlayers.Count);
+        
+        // Check ready states
+        var statusesBeforeReady =  await firebaseAPIFetch.GetAllIsReadyAsync(roomCreationResult.roomId,0);
+        Assert.AreEqual(3, statusesBeforeReady.Count);
+        Assert.IsFalse(statusesBeforeReady[0].Ready);
+        Assert.IsFalse(statusesBeforeReady[1].Ready);
+        Assert.IsFalse(statusesBeforeReady[2].Ready);
 
         // Players ready-up
         await firebaseWriteAPI.UpdateIsReadyForPlayerAsync(roomCreationResult.roomId,0,roomCreationResult.playerId,true);
         await firebaseWriteAPI.UpdateIsReadyForPlayerAsync(roomCreationResult.roomId,0,joinRoomResultSecond,true);
         await firebaseWriteAPI.UpdateIsReadyForPlayerAsync(roomCreationResult.roomId,0,joinRoomResultThird,true);
         
+        // Check ready states
+        var statusesAfterReady =  await firebaseAPIFetch.GetAllIsReadyAsync(roomCreationResult.roomId,0);
+        Assert.AreEqual(3, statusesAfterReady.Count);
+        Assert.IsTrue(statusesAfterReady[0].Ready);
+        Assert.IsTrue(statusesAfterReady[1].Ready);
+        Assert.IsTrue(statusesAfterReady[2].Ready);
+        
+        // Update available opponents for each player
+        await firebaseWriteAPI.UpdateAvailableOpponentAsync(roomCreationResult.roomId,0, roomCreationResult.playerId,new [] { playerTwoName, playerThreeName });
+        await firebaseWriteAPI.UpdateAvailableOpponentAsync(roomCreationResult.roomId,0, joinRoomResultSecond,new [] {playerOneName, playerThreeName});
+        await firebaseWriteAPI.UpdateAvailableOpponentAsync(roomCreationResult.roomId,0, joinRoomResultThird,new [] {playerOneName, playerTwoName});
+        
+        // Read available opponents for each player
+        var opponentsForPlayerOne = await firebaseAPIFetch.GetAvailableOpponentAsync(roomCreationResult.roomId,0, roomCreationResult.playerId);
+        var opponentsForPlayerTwo = await firebaseAPIFetch.GetAvailableOpponentAsync(roomCreationResult.roomId,0, joinRoomResultSecond);
+        var opponentsForPlayerThree = await firebaseAPIFetch.GetAvailableOpponentAsync(roomCreationResult.roomId,0, joinRoomResultThird);
+        Assert.AreEqual(2, opponentsForPlayerOne.Count);
+        Assert.AreEqual(2, opponentsForPlayerTwo.Count);
+        Assert.AreEqual(2, opponentsForPlayerThree.Count);
+        
+        Assert.AreEqual(playerTwoName, opponentsForPlayerOne[0]);
+        Assert.AreEqual(playerThreeName, opponentsForPlayerOne[1]);
+        
+        Assert.AreEqual(playerOneName, opponentsForPlayerTwo[0]);
+        Assert.AreEqual(playerThreeName, opponentsForPlayerTwo[1]);
+        
+        Assert.AreEqual(playerOneName, opponentsForPlayerThree[0]);
+        Assert.AreEqual(playerTwoName, opponentsForPlayerThree[1]);
+        
+        // Create battle pairs
+        // firebaseWriteAPI.
+        
 
         // Clean up
         GameObject.DestroyImmediate(gameObject);
-    }
-
-    // A UnityTest behaves like a coroutine in Play Mode. In Edit Mode you can use
-    // `yield return null;` to skip a frame.
-    [UnityTest]
-    public IEnumerator NewTestScriptWithEnumeratorPasses()
-    {
-        // Use the Assert class to test conditions.
-        // Use yield to skip a frame.
-        yield return null;
     }
 }

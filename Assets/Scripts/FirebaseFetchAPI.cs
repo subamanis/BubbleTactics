@@ -6,14 +6,14 @@ using Firebase.Extensions;
 
 public class FirebaseAPIFetch : MonoBehaviour
 {
-    public  DatabaseReference databaseReference { get; set; }
+    public  DatabaseReference DatabaseReference { get; set; }
 
     public async Task<bool?> GetHasGameStartedAsync(string roomId)
     {
         bool? hasGameStarted = null;
         try
         {
-            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("hasGameStarted")
+            DataSnapshot snapshot = await DatabaseReference.Child("rooms").Child(roomId).Child("hasGameStarted")
                 .GetValueAsync();
             if (snapshot.Exists)
             {
@@ -35,7 +35,7 @@ public class FirebaseAPIFetch : MonoBehaviour
         try
         {
             DataSnapshot snapshot =
-                await databaseReference.Child("rooms").Child(roomId).Child("players").GetValueAsync();
+                await DatabaseReference.Child("rooms").Child(roomId).Child("players").GetValueAsync();
 
             if (snapshot.Exists)
             {
@@ -78,7 +78,7 @@ public class FirebaseAPIFetch : MonoBehaviour
         {
             // Get the rounds from the database
             DataSnapshot snapshot =
-                await databaseReference.Child("rooms").Child(roomId).Child("rounds").GetValueAsync();
+                await DatabaseReference.Child("rooms").Child(roomId).Child("rounds").GetValueAsync();
 
             if (!snapshot.Exists)
             {
@@ -116,7 +116,7 @@ public class FirebaseAPIFetch : MonoBehaviour
         var actionSelections = new Dictionary<string, string>();
         try
         {
-            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds")
+            DataSnapshot snapshot = await DatabaseReference.Child("rooms").Child(roomId).Child("rounds")
                 .Child(roundId.ToString()).Child("actionSelection").GetValueAsync();
             if (snapshot.Exists)
             {
@@ -139,7 +139,7 @@ public class FirebaseAPIFetch : MonoBehaviour
         string actionSelection = null;
         try
         {
-            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds")
+            DataSnapshot snapshot = await DatabaseReference.Child("rooms").Child(roomId).Child("rounds")
                 .Child(roundId.ToString()).Child("actionSelection").Child(playerId).GetValueAsync();
             if (snapshot.Exists)
             {
@@ -154,39 +154,16 @@ public class FirebaseAPIFetch : MonoBehaviour
         return actionSelection;
     }
 
-    public async Task<Dictionary<string, string>> GetAllAvailableOpponentsAsync(string roomId, int roundId)
+    public async Task<IList<string>> GetAvailableOpponentAsync(string roomId, int roundId, string playerId)
     {
-        var availableOpponents = new Dictionary<string, string>();
+        var availableOpponent = new List<string>();
         try
         {
-            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds")
-                .Child(roundId.ToString()).Child("availableOpponents").GetValueAsync();
-            if (snapshot.Exists)
-            {
-                foreach (var child in snapshot.Children)
-                {
-                    availableOpponents[child.Key] = child.Value.ToString();
-                }
-            }
-        }
-        catch (System.Exception ex)
-        {
-            Debug.LogError($"Failed to fetch available opponents: {ex.Message}");
-        }
-
-        return availableOpponents;
-    }
-
-    public async Task<string> GetAvailableOpponentAsync(string roomId, int roundId, string playerId)
-    {
-        string availableOpponent = null;
-        try
-        {
-            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds")
+            DataSnapshot snapshot = await DatabaseReference.Child("rooms").Child(roomId).Child("rounds")
                 .Child(roundId.ToString()).Child("availableOpponents").Child(playerId).GetValueAsync();
             if (snapshot.Exists)
             {
-                availableOpponent = snapshot.Value.ToString();
+                availableOpponent = new List<string>( snapshot.Value.ToString().Split(FirebaseWriteAPI.PlayerNameSeparator));
             }
         }
         catch (System.Exception ex)
@@ -202,7 +179,7 @@ public class FirebaseAPIFetch : MonoBehaviour
         var hasLockedActions = new Dictionary<string, bool>();
         try
         {
-            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds")
+            DataSnapshot snapshot = await DatabaseReference.Child("rooms").Child(roomId).Child("rounds")
                 .Child(roundId.ToString()).Child("hasLockedAction").GetValueAsync();
             if (snapshot.Exists)
             {
@@ -225,7 +202,7 @@ public class FirebaseAPIFetch : MonoBehaviour
         bool? hasLockedAction = null;
         try
         {
-            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds")
+            DataSnapshot snapshot = await DatabaseReference.Child("rooms").Child(roomId).Child("rounds")
                 .Child(roundId.ToString()).Child("hasLockedAction").Child(playerId).GetValueAsync();
             if (snapshot.Exists)
             {
@@ -240,18 +217,22 @@ public class FirebaseAPIFetch : MonoBehaviour
         return hasLockedAction;
     }
 
-    public async Task<Dictionary<string, bool>> GetAllIsReadyAsync(string roomId, int roundId)
+    public async Task<IList<BubblePlayerReadyState>> GetAllIsReadyAsync(string roomId, int roundId)
     {
-        var isReadyValues = new Dictionary<string, bool>();
+        var isReadyValues = new List<BubblePlayerReadyState>();
         try
         {
-            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds")
+            DataSnapshot snapshot = await DatabaseReference.Child("rooms").Child(roomId).Child("rounds")
                 .Child(roundId.ToString()).Child("isReady").GetValueAsync();
             if (snapshot.Exists)
             {
                 foreach (var child in snapshot.Children)
                 {
-                    isReadyValues[child.Key] = bool.Parse(child.Value.ToString());
+                    isReadyValues.Add(new BubblePlayerReadyState
+                    {
+                        FirebaseId = child.Key,
+                        Ready = bool.Parse(child.Value.ToString())
+                    });
                 }
             }
         }
@@ -268,7 +249,7 @@ public class FirebaseAPIFetch : MonoBehaviour
         bool? isReady = null;
         try
         {
-            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds")
+            DataSnapshot snapshot = await DatabaseReference.Child("rooms").Child(roomId).Child("rounds")
                 .Child(roundId.ToString()).Child("isReady").Child(playerId).GetValueAsync();
             if (snapshot.Exists)
             {
@@ -288,7 +269,7 @@ public class FirebaseAPIFetch : MonoBehaviour
         var scores = new Dictionary<string, int>();
         try
         {
-            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds")
+            DataSnapshot snapshot = await DatabaseReference.Child("rooms").Child(roomId).Child("rounds")
                 .Child(roundId.ToString()).Child("scores").GetValueAsync();
             if (snapshot.Exists)
             {
@@ -311,7 +292,7 @@ public class FirebaseAPIFetch : MonoBehaviour
         int? score = null;
         try
         {
-            DataSnapshot snapshot = await databaseReference.Child("rooms").Child(roomId).Child("rounds")
+            DataSnapshot snapshot = await DatabaseReference.Child("rooms").Child(roomId).Child("rounds")
                 .Child(roundId.ToString()).Child("scores").Child(playerName).GetValueAsync();
             if (snapshot.Exists)
             {

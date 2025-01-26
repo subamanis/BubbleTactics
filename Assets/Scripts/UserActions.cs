@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
+using Firebase;
 using Firebase.Database;
 using Firebase.Extensions;
 using TMPro;
@@ -22,13 +24,35 @@ public class UserActions: MonoBehaviour
         FirebaseDatabase.DefaultInstance.SetPersistenceEnabled(false);
     }
 
-    public void Start() {
-        databaseReference = FirebaseDatabase.DefaultInstance.RootReference;
-        this.firebaseFetchAPI = this.GetComponent<FirebaseAPIFetch>();
-        this.firebaseWriteAPI = this.GetComponent<FirebaseWriteAPI>();
+    public void Start()
+    {
+        InitFirebase().ContinueWithOnMainThread((result) =>
+        {
+            Debug.Log("Init Firebase with status: " + result.Result);
+        });
+    }
+    
+    public Task<bool> InitFirebase() {
+        return FirebaseApp.CheckAndFixDependenciesAsync().ContinueWithOnMainThread(task =>
+        {
+            if (task.Result == DependencyStatus.Available)
+            {
+                Debug.Log("Firebase is ready to use.");
+                databaseReference = FirebaseDatabase.DefaultInstance.RootReference;
+                this.firebaseFetchAPI = this.GetComponent<FirebaseAPIFetch>();
+                this.firebaseWriteAPI = this.GetComponent<FirebaseWriteAPI>();
 
-        this.firebaseFetchAPI.databaseReference = databaseReference;
-        this.firebaseWriteAPI.databaseReference = databaseReference;
+                this.firebaseFetchAPI.DatabaseReference = databaseReference;
+                this.firebaseWriteAPI.DatabaseReference = databaseReference;
+                return true;
+            }
+            else
+            {
+                Debug.LogError($"Could not resolve all Firebase dependencies: {task.Result}");
+            }
+
+            return false;
+        });
     }
 
     public void UserClickedCreateRoom () {
