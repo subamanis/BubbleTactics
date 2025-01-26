@@ -161,6 +161,7 @@ public class FirebaseAPIFetch : MonoBehaviour
         {
             DataSnapshot snapshot = await DatabaseReference.Child("rooms").Child(roomId).Child("rounds")
                 .Child(roundId.ToString()).Child("availableOpponents").Child(playerId).GetValueAsync();
+            
             if (snapshot.Exists)
             {
                 availableOpponent = new List<string>( snapshot.Value.ToString().Split(FirebaseWriteAPI.PlayerNameSeparator));
