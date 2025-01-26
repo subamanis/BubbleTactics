@@ -17,7 +17,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &8338662257751733116
 RectTransform:
   m_ObjectHideFlags: 0
@@ -192,6 +192,7 @@ MonoBehaviour:
   normalScrollingSpeed: 0
   normalSurfaceMovementSpeed: 0
   normalNoiseScale: 0
+  bubbleUserName: {fileID: 777211283295421437}
 --- !u!33 &8110912132119853156
 MeshFilter:
   m_ObjectHideFlags: 0

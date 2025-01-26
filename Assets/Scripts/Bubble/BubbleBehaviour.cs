@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using TMPro;
 using UnityEngine;
 
 namespace Prefabs.Scripts
@@ -22,6 +23,8 @@ namespace Prefabs.Scripts
         private static readonly int NoiseScale = Shader.PropertyToID("_NoiseScale");
 
         private Material _bubbleMaterial;
+        
+        public TMP_Text bubbleUserName;
 
         private void Start()
         {
@@ -73,6 +76,12 @@ namespace Prefabs.Scripts
         public void Excite()
         {
             StartCoroutine(ExciteBubble());
+        }
+
+        public void SetPlayerUserName(string userName)
+        {
+           this.bubbleUserName.text = userName;
+           this.bubbleUserName.gameObject.SetActive(true);
         }
     }
 }
