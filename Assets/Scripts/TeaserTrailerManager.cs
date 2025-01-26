@@ -14,16 +14,21 @@ public class TeaserTrailerManager : MonoBehaviour
     
     public RectTransform staringGameTransform;
     public RectTransform roundScreenTransform;
+    public RectTransform fusionScreenTransform;
     
     public BubbleBehaviour bubblePrefab;
     
     public List<string> PlayerNames = new List<string>();
     private int playerNameIndex = 0;
+    
+    private BubbleBehaviour onePlayer;
+    private BubbleBehaviour twoPlayer;
 
     private void Start()
     {
         staringGameTransform.gameObject.SetActive(true);
         roundScreenTransform.gameObject.SetActive(false);
+        fusionScreenTransform.gameObject.SetActive(false);
     }
 
     public void SetPlayerUserName(string userName)
@@ -56,13 +61,22 @@ public class TeaserTrailerManager : MonoBehaviour
         bubble.isHovering = true;
 
         ChoseNextName();
-        var onePlayer = Instantiate(bubblePrefab, new Vector3(3, 2, +4), Quaternion.identity);
+        onePlayer = Instantiate(bubblePrefab, new Vector3(3, 2, +4), Quaternion.identity);
         StartCoroutine(onePlayer.MoveBubbleSmoothly(new Vector3(-0.56f, -0.88f, 0.33f), 1.5f));
         onePlayer.SetPlayerUserName(PlayerNames[playerNameIndex]);
         
         ChoseNextName();
-        var twoPlayer = Instantiate(bubblePrefab, new Vector3(1, 2,-5), Quaternion.identity);
+        twoPlayer = Instantiate(bubblePrefab, new Vector3(1, 2,-5), Quaternion.identity);
         StartCoroutine(twoPlayer.MoveBubbleSmoothly(new Vector3(0.08f, -0.33f, -0.41f), 2f));
         twoPlayer.SetPlayerUserName(PlayerNames[playerNameIndex]);
+    }
+
+    public void MoveToFusionScreen()
+    {
+        roundScreenTransform.gameObject.SetActive(false);
+        fusionScreenTransform.gameObject.SetActive(true);
+        StartCoroutine(onePlayer.MoveBubbleSmoothly(new Vector3(3, 2, +4), 1.5f));
+        StartCoroutine(twoPlayer.MoveBubbleSmoothly(new Vector3(1, 2,-5), 2f));
+        StartCoroutine(bubble.MoveBubbleSmoothly(new Vector3(0.0f, -0.2f, 0f), 2f));
     }
 }
