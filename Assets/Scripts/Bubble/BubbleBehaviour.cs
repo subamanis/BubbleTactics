@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Prefabs.Scripts
 {
@@ -25,6 +26,8 @@ namespace Prefabs.Scripts
         private Material _bubbleMaterial;
         
         public TMP_Text bubbleUserName;
+        public bool isHovering = false;
+        public float hoverSpeed = 1f;
 
         private void Start()
         {
@@ -82,6 +85,41 @@ namespace Prefabs.Scripts
         {
            this.bubbleUserName.text = userName;
            this.bubbleUserName.gameObject.SetActive(true);
+        }
+
+        private void Update()
+        {
+            if (isHovering)
+            {
+                // Randomly move the transform in X, Y
+                
+                
+            }
+        }
+
+        public IEnumerator MoveBubbleSmoothly(Vector3 targetPosition  ,float duration = 1f)
+        {
+            float elapsedTime = 0f; // Track elapsed time
+
+            Vector3 startingPosition = transform.position; // Start position
+
+            while (elapsedTime < duration)
+            {
+                // Increment time by the time since the last frame
+                elapsedTime += Time.deltaTime;
+
+                // Calculate the eased time using SmoothStep
+                float t = Mathf.Clamp01(elapsedTime / duration);
+                t = Mathf.SmoothStep(0f, 1f, t);
+
+                // Interpolate between starting and target positions using eased time
+                transform.position = Vector3.Lerp(startingPosition, targetPosition, t);
+
+                yield return null; // Wait for the next frame
+            }
+
+            // Ensure the bubble is exactly at the center after movement
+            transform.position = targetPosition;
         }
     }
 }

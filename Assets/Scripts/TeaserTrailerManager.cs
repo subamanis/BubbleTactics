@@ -1,3 +1,6 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
 using Prefabs.Scripts;
 using TMPro;
 using UnityEngine;
@@ -8,7 +11,20 @@ public class TeaserTrailerManager : MonoBehaviour
     public string chosenUserName;
     public BubbleBehaviour bubble;
     public TMP_InputField roomIdInput;
+    
+    public RectTransform staringGameTransform;
+    public RectTransform roundScreenTransform;
+    
+    public BubbleBehaviour bubblePrefab;
+    
+    public List<string> PlayerNames = new List<string>();
+    private int playerNameIndex = 0;
 
+    private void Start()
+    {
+        staringGameTransform.gameObject.SetActive(true);
+        roundScreenTransform.gameObject.SetActive(false);
+    }
 
     public void SetPlayerUserName(string userName)
     {
@@ -19,11 +35,34 @@ public class TeaserTrailerManager : MonoBehaviour
     public void CopyUserNameClicked()
     {
         Debug.Log("Copying user name");
-        SetPlayerUserName(roomIdInput.text);
+        ChoseNextName();
+        SetPlayerUserName(PlayerNames[playerNameIndex]);
+    }
+
+    private void ChoseNextName()
+    {
+        playerNameIndex++;
+        if (playerNameIndex >= PlayerNames.Count)
+            playerNameIndex = 0;
     }
 
     public void StartGameClicked()
     {
         Debug.Log("Starting game...");
+        this.staringGameTransform.gameObject.SetActive(false);
+        this.roundScreenTransform.gameObject.SetActive(true);
+
+        StartCoroutine(bubble.MoveBubbleSmoothly(new Vector3(0.47f, 0.49f, 0.34f), 1f));
+        bubble.isHovering = true;
+
+        ChoseNextName();
+        var onePlayer = Instantiate(bubblePrefab, new Vector3(3, 2, +4), Quaternion.identity);
+        StartCoroutine(onePlayer.MoveBubbleSmoothly(new Vector3(-0.56f, -0.88f, 0.33f), 1.5f));
+        onePlayer.SetPlayerUserName(PlayerNames[playerNameIndex]);
+        
+        ChoseNextName();
+        var twoPlayer = Instantiate(bubblePrefab, new Vector3(1, 2,-5), Quaternion.identity);
+        StartCoroutine(twoPlayer.MoveBubbleSmoothly(new Vector3(0.08f, -0.33f, -0.41f), 2f));
+        twoPlayer.SetPlayerUserName(PlayerNames[playerNameIndex]);
     }
 }
