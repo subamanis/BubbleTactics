@@ -36,7 +36,39 @@ public static class BabbleBattleScoreCalculator
     {
         if (myAction == BubbleBattleAction.Merge && opponentAction == BubbleBattleAction.Merge)
         {
+            return 1;
+        }
+        else if (myAction == BubbleBattleAction.Merge && opponentAction == BubbleBattleAction.Pop)
+        {
+            return -1;
+        }
+        else if (myAction == BubbleBattleAction.Merge && opponentAction == BubbleBattleAction.Float)
+        {
+            return 0;
+        }
+        else if (myAction == BubbleBattleAction.Pop && opponentAction == BubbleBattleAction.Merge)
+        {
+            return 4;
+        }
+        else if (myAction == BubbleBattleAction.Pop && opponentAction == BubbleBattleAction.Pop)
+        {
+            return -2;
+        }
+        else if (myAction == BubbleBattleAction.Pop && opponentAction == BubbleBattleAction.Float)
+        {
+            return -2;
+        }
+        else if (myAction == BubbleBattleAction.Float && opponentAction == BubbleBattleAction.Merge)
+        {
+            return -1;
+        }
+        else if (myAction == BubbleBattleAction.Float && opponentAction == BubbleBattleAction.Pop)
+        {
             return 2;
+        }
+        else if (myAction == BubbleBattleAction.Float && opponentAction == BubbleBattleAction.Float)
+        {
+            return -1;
         }
         
         throw new System.NotImplementedException("Score calculation not implemented for action: " + myAction + " and opponent action: " + opponentAction + "");
