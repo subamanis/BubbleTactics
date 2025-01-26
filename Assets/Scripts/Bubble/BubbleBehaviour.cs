@@ -15,7 +15,7 @@ namespace Prefabs.Scripts
         public float exciteSurfaceMovementSpeed = 0.05f;
         public float exciteNoiseScale = 0.4f;
 
-        public float normalScrollingSpeed = 0.05f;
+        public float normalScrollingSpeed = 0.15f;
         public float normalSurfaceMovementSpeed = 0f;
         public float normalNoiseScale = 0f;
 
@@ -28,6 +28,7 @@ namespace Prefabs.Scripts
         public TMP_Text bubbleUserName;
         public bool isHovering = false;
         public float hoverSpeed = 1f;
+        private bool isExcited = false;
 
         private void Start()
         {
@@ -73,12 +74,37 @@ namespace Prefabs.Scripts
 
         public void Normal()
         {
-            StartCoroutine(ExciteBubble(true));
+            StartCoroutine(HeartBeat());
+        }
+
+        public IEnumerator HeartBeat()
+        {
+            yield return StartCoroutine(ScaleBubbleSmoothly(1.3f, 0.4f));
+            yield return StartCoroutine(ScaleBubbleSmoothly(1f, 0.2f));
+            yield return StartCoroutine(ScaleBubbleSmoothly(1.4f, 0.3f));
+            yield return StartCoroutine(ScaleBubbleSmoothly(1f, 0.15f));
         }
 
         public void Excite()
         {
-            StartCoroutine(ExciteBubble());
+            StartCoroutine(ExciteBubble(reverse:isExcited));
+            isExcited = !isExcited;
+        }
+
+        public void Dodge()
+        {
+            StartCoroutine(MoveAround());
+        }
+
+        public IEnumerator MoveAround()
+        {
+            var currentPosition = transform.position;
+            yield return StartCoroutine(MoveBubbleSmoothly(currentPosition + new Vector3(.42f, -.03f, 0.12f), .3f));
+            yield return StartCoroutine(MoveBubbleSmoothly(currentPosition + new Vector3(-0.76f, -0.9f, 0.17f), .3f));
+            yield return StartCoroutine(MoveBubbleSmoothly(currentPosition + new Vector3(0.8f, 0.5f, -0.2f), .3f));
+            yield return StartCoroutine(MoveBubbleSmoothly(currentPosition + new Vector3(0.2f, 0.9f, 0.5f), .3f));
+            yield return StartCoroutine(MoveBubbleSmoothly(currentPosition + new Vector3(-0.4f, 0.2f, -0.3f), .3f));
+            yield return StartCoroutine(MoveBubbleSmoothly(currentPosition, .3f));
         }
 
         public void SetPlayerUserName(string userName)
@@ -95,6 +121,31 @@ namespace Prefabs.Scripts
                 
                 
             }
+        }
+        
+        public IEnumerator ScaleBubbleSmoothly(float targetScale  ,float duration = 1f)
+        {
+            float elapsedTime = 0f; // Track elapsed time
+
+            Vector3 startingPosition = transform.localScale; // Start position
+
+            while (elapsedTime < duration)
+            {
+                // Increment time by the time since the last frame
+                elapsedTime += Time.deltaTime;
+
+                // Calculate the eased time using SmoothStep
+                float t = Mathf.Clamp01(elapsedTime / duration);
+                t = Mathf.SmoothStep(0f, 1f, t);
+
+                // Interpolate between starting and target positions using eased time
+                transform.localScale = Vector3.Lerp(startingPosition, new Vector3(targetScale,targetScale,targetScale), t);
+
+                yield return null; // Wait for the next frame
+            }
+
+            // Ensure the bubble is exactly at the center after movement
+            transform.localScale = new Vector3(targetScale,targetScale,targetScale);
         }
 
         public IEnumerator MoveBubbleSmoothly(Vector3 targetPosition  ,float duration = 1f)
