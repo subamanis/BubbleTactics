@@ -189,7 +189,7 @@ MonoBehaviour:
   exciteScrollingSpeed: 1
   exciteSurfaceMovementSpeed: 0.05
   exciteNoiseScale: 0.4
-  normalScrollingSpeed: 0
+  normalScrollingSpeed: 0.15
   normalSurfaceMovementSpeed: 0
   normalNoiseScale: 0
   bubbleUserName: {fileID: 777211283295421437}

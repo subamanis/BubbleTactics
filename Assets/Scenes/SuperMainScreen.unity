@@ -658,12 +658,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0cd44c1031e13a943bb63640046fad76, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_UiScaleMode: 0
+  m_UiScaleMode: 1
   m_ReferencePixelsPerUnit: 100
   m_ScaleFactor: 1
   m_ReferenceResolution: {x: 800, y: 600}
-  m_ScreenMatchMode: 0
-  m_MatchWidthOrHeight: 0
+  m_ScreenMatchMode: 2
+  m_MatchWidthOrHeight: 1
   m_PhysicalUnit: 3
   m_FallbackScreenDPI: 96
   m_DefaultSpriteDPI: 96
@@ -1471,7 +1471,7 @@ MonoBehaviour:
   roomIdInput: {fileID: 1977221652}
   staringGameTransform: {fileID: 2138005032}
   roundScreenTransform: {fileID: 1457676803}
-  fusionScreenTransform: {fileID: 0}
+  fusionScreenTransform: {fileID: 1424395646}
   bubblePrefab: {fileID: 7062017848618303719, guid: 8876622de27d7104694d884ee90ddaf5, type: 3}
   PlayerNames:
   - Thanasis
@@ -1579,7 +1579,7 @@ GameObject:
   - component: {fileID: 702129136}
   - component: {fileID: 702129135}
   m_Layer: 5
-  m_Name: PlayButton
+  m_Name: MergeButton
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1623,7 +1623,7 @@ MonoBehaviour:
     m_SelectOnDown: {fileID: 0}
     m_SelectOnLeft: {fileID: 0}
     m_SelectOnRight: {fileID: 0}
-  m_Transition: 1
+  m_Transition: 2
   m_Colors:
     m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
     m_HighlightedColor: {r: 0.9607843, g: 0.9607843, b: 0.9607843, a: 1}
@@ -1634,7 +1634,7 @@ MonoBehaviour:
     m_FadeDuration: 0.1
   m_SpriteState:
     m_HighlightedSprite: {fileID: 0}
-    m_PressedSprite: {fileID: 0}
+    m_PressedSprite: {fileID: 21300000, guid: e15dfa2c1fb10d549b4dadd494508174, type: 3}
     m_SelectedSprite: {fileID: 0}
     m_DisabledSprite: {fileID: 0}
   m_AnimationTriggers:
@@ -1648,9 +1648,9 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 546298263}
-        m_TargetAssemblyTypeName: TeaserTrailerManager, BubbleScripts
-        m_MethodName: StartGameClicked
+      - m_Target: {fileID: 1662670801}
+        m_TargetAssemblyTypeName: Prefabs.Scripts.BubbleBehaviour, BubbleScripts
+        m_MethodName: Normal
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -2823,7 +2823,7 @@ GameObject:
   - component: {fileID: 1773763749}
   - component: {fileID: 1773763748}
   m_Layer: 5
-  m_Name: PlayButton (2)
+  m_Name: FloatButton
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2867,7 +2867,7 @@ MonoBehaviour:
     m_SelectOnDown: {fileID: 0}
     m_SelectOnLeft: {fileID: 0}
     m_SelectOnRight: {fileID: 0}
-  m_Transition: 1
+  m_Transition: 2
   m_Colors:
     m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
     m_HighlightedColor: {r: 0.9607843, g: 0.9607843, b: 0.9607843, a: 1}
@@ -2878,7 +2878,7 @@ MonoBehaviour:
     m_FadeDuration: 0.1
   m_SpriteState:
     m_HighlightedSprite: {fileID: 0}
-    m_PressedSprite: {fileID: 0}
+    m_PressedSprite: {fileID: 21300000, guid: 65d09866b467730458698d96905a5540, type: 3}
     m_SelectedSprite: {fileID: 0}
     m_DisabledSprite: {fileID: 0}
   m_AnimationTriggers:
@@ -2892,9 +2892,9 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 546298263}
-        m_TargetAssemblyTypeName: TeaserTrailerManager, BubbleScripts
-        m_MethodName: StartGameClicked
+      - m_Target: {fileID: 1662670801}
+        m_TargetAssemblyTypeName: Prefabs.Scripts.BubbleBehaviour, BubbleScripts
+        m_MethodName: Dodge
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -3091,7 +3091,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 546298263}
         m_TargetAssemblyTypeName: TeaserTrailerManager, BubbleScripts
-        m_MethodName: StartGameClicked
+        m_MethodName: MoveToFusionScreen
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -3330,7 +3330,7 @@ GameObject:
   - component: {fileID: 2053499406}
   - component: {fileID: 2053499405}
   m_Layer: 5
-  m_Name: PlayButton (1)
+  m_Name: PopButton
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -3374,7 +3374,7 @@ MonoBehaviour:
     m_SelectOnDown: {fileID: 0}
     m_SelectOnLeft: {fileID: 0}
     m_SelectOnRight: {fileID: 0}
-  m_Transition: 1
+  m_Transition: 2
   m_Colors:
     m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
     m_HighlightedColor: {r: 0.9607843, g: 0.9607843, b: 0.9607843, a: 1}
@@ -3385,7 +3385,7 @@ MonoBehaviour:
     m_FadeDuration: 0.1
   m_SpriteState:
     m_HighlightedSprite: {fileID: 0}
-    m_PressedSprite: {fileID: 0}
+    m_PressedSprite: {fileID: 21300000, guid: c42e85f0943342a4885bfe79a096d984, type: 3}
     m_SelectedSprite: {fileID: 0}
     m_DisabledSprite: {fileID: 0}
   m_AnimationTriggers:
@@ -3399,9 +3399,9 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 546298263}
-        m_TargetAssemblyTypeName: TeaserTrailerManager, BubbleScripts
-        m_MethodName: StartGameClicked
+      - m_Target: {fileID: 1662670801}
+        m_TargetAssemblyTypeName: Prefabs.Scripts.BubbleBehaviour, BubbleScripts
+        m_MethodName: Excite
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
