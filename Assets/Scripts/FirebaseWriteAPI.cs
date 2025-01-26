@@ -4,9 +4,10 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
 
-public class FirebaseWriteAPI: MonoBehaviour
+public class FirebaseWriteAPI : MonoBehaviour
 {
     public const string PlayerNameSeparator = "||";
+    const int StartingPlayerScore = 5;
 
     public DatabaseReference DatabaseReference { get; set; }
 
@@ -23,7 +24,7 @@ public class FirebaseWriteAPI: MonoBehaviour
         return DateTimeOffset.UtcNow.ToUnixTimeSeconds();
     }
 
-    public async Task<(string roomId, string playerId)> CreateRoomAsync(string playerName)
+    public async Task<string> CreateRoomAsync()
     {
         string roomId = GenerateFiveDigitRoomId();
 
@@ -39,52 +40,25 @@ public class FirebaseWriteAPI: MonoBehaviour
                 snapshot = await DatabaseReference.Child("rooms").Child(roomId).GetValueAsync();
             }
 
-            // Generate a unique playerId for the player
-            var playerId = DatabaseReference.Child("rooms").Child(roomId).Child("players").Push().Key;
-
-            // Create the player data
-            var playerData = new Dictionary<string, object>
-            {
-                { "name", playerName },
-                { "joinTime", GetUnixTimestamp() } // Unix timestamp for joinTime
-            };
-
-            // Create the isReady dictionary for the first round
-            var isReady = new Dictionary<string, object>
-            {
-                { playerId, false } // Initialize isReady as false for the player
-            };
-
             // Initial room structure
             var roomData = new Dictionary<string, object>
             {
-                { "hasGameStarted", false },
-                { "players", new Dictionary<string, object> { { playerId, playerData } } }, // Add the player
-                {
-                    "rounds",
-                    new Dictionary<string, object>
-                    {
-                        {
-                            "0", // First round with ID 0
-                            new Dictionary<string, object>
-                            {
-                                { "isReady", isReady } // Add isReady to the first round
-                            }
-                        }
-                    }
-                }
+                { "createdTime", GetUnixTimestamp() } // Unix timestamp
             };
 
             // Write the new room to the database
             await DatabaseReference.Child("rooms").Child(roomId).SetValueAsync(roomData);
 
-            Debug.Log($"Room {roomId} created successfully with player {playerName} (ID: {playerId}) and the first round initialized.");
-            return (roomId, playerId); // Return both the roomId and playerId
+            // Create first round
+            await CreateNewRoundAsync(roomId);
+
+            Debug.Log($"Room {roomId} created successfully with the first round initialized.");
+            return roomId; // Return both the roomId and playerId
         }
         catch (System.Exception ex)
         {
             Debug.LogError($"Failed to create room: {ex.Message}");
-            return (null, null); // Return nulls if the operation fails
+            return null; // Return null if the operation fails
         }
     }
 
@@ -162,18 +136,14 @@ public class FirebaseWriteAPI: MonoBehaviour
                 foreach (var player in playersSnapshot.Children)
                 {
                     string playerName = player.Child("name").Value.ToString();
-                    scores[playerName] = 5; // Default score
+                    scores[playerName] = StartingPlayerScore; // Default score
                 }
             }
 
             // Default data for the new round
             var newRoundData = new Dictionary<string, object>
             {
-                { "actionSelection", new Dictionary<string, object>() },
-                { "availableOpponents", new Dictionary<string, object>() },
-                { "hasLockedAction", new Dictionary<string, object>() },
-                { "isReady", new Dictionary<string, object>() },
-                { "scores", scores }
+                { "scoreDiffs", scores }
             };
 
             // Write the new round to the database
@@ -228,43 +198,19 @@ public class FirebaseWriteAPI: MonoBehaviour
         }
     }
 
-    public async Task UpdateScoresAsync(string roomId, int roundId, Dictionary<string, int> scores)
-    {
-        try
-        {
-            await DatabaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("scores").SetValueAsync(scores);
-            Debug.Log($"Updated scores for round {roundId} in room {roomId}.");
-        }
-        catch (System.Exception ex)
-        {
-            Debug.LogError($"Failed to update scores for round {roundId} in room {roomId}: {ex.Message}");
-        }
-    }
-
-    public async Task UpdateScoreForPlayerAsync(string roomId, int roundId, string playerName, int score)
-    {
-        try
-        {
-            await DatabaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("scores").Child(playerName).SetValueAsync(score);
-            Debug.Log($"Updated score for player {playerName} in round {roundId} in room {roomId}.");
-        }
-        catch (System.Exception ex)
-        {
-            Debug.LogError($"Failed to update score for player {playerName} in round {roundId} in room {roomId}: {ex.Message}");
-        }
-    }
-
     public async Task CreateBattlePair(string roomId, int roundId, string playerOneSide, string playerOtherSide)
     {
         try
         {
             await DatabaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("battlePairs").Child(playerOneSide).SetValueAsync(new Dictionary<string, object>
             {
-                { "opponent" , playerOtherSide }
+                { "opponent", playerOtherSide },
+                { "isPlaying", true }
             });
             await DatabaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("battlePairs").Child(playerOtherSide).SetValueAsync(new Dictionary<string, object>
             {
-                { "opponent" , playerOneSide }
+                { "opponent", playerOneSide },
+                { "isPlaying", true }
             });
         }
         catch (Exception e)
@@ -277,9 +223,9 @@ public class FirebaseWriteAPI: MonoBehaviour
     {
         try
         {
-            await DatabaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("battlePairs").Child(playerNoBattle).SetValueAsync(new Dictionary<string, string>
+            await DatabaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("battlePairs").Child(playerNoBattle).SetValueAsync(new Dictionary<string, bool>
             {
-                { "action", BabbleBattleAction.NoOpponent.ToString()}
+                { "isPlaying", false }
             });
         }
         catch (Exception e)
@@ -287,5 +233,72 @@ public class FirebaseWriteAPI: MonoBehaviour
             Debug.LogError($"Failed to create empty battle pair for player {playerNoBattle} in room {roomId} and round {roundId}: {e.Message}");
         }
     }
-}
 
+    public async Task UpdatePlayerAction(string roomId, int roundId, string playerId, BubbleBattleAction bubbleBattleAction)
+    {
+        try
+        {
+            await DatabaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("battlePairs").Child(playerId).UpdateChildrenAsync(new Dictionary<string, object>
+            {
+                { "action", bubbleBattleAction.ToString() }
+            });
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Failed to update player action for player {playerId} in room {roomId} and round {roundId}: {e.Message}");
+        }
+    }
+
+    public async Task CalculateAndSetPlayerRoundScoreDiff(string roomId, int roundId, string playerId)
+    {
+        try
+        {
+            // Get battlePair
+            DataSnapshot battlePairSnapshot = await DatabaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("battlePairs").Child(playerId).GetValueAsync();
+            Dictionary<string, object> battlePair = battlePairSnapshot.Value as Dictionary<string, object>;
+            string myActionString = battlePair["action"].ToString();
+            BubbleBattleAction myActionEnum = (BubbleBattleAction)Enum.Parse(typeof(BubbleBattleAction), myActionString);
+
+            int myScoreDiff = 0;
+
+            // Get opponent action for that battlePair
+            if (battlePair["isPlaying"].Equals(true))
+            {
+                DataSnapshot opponentActionSnapshot = await DatabaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("battlePairs").Child(battlePair["opponent"].ToString()).GetValueAsync();
+                Dictionary<string, object> opponentAction = opponentActionSnapshot.Value as Dictionary<string, object>;
+                string opponentActionString = opponentAction["action"].ToString();
+                BubbleBattleAction opponentActionEnum = (BubbleBattleAction)Enum.Parse(typeof(BubbleBattleAction), opponentActionString);
+
+                myScoreDiff = BabbleBattleScoreCalculator.CalculateScore(myActionEnum, opponentActionEnum);
+            }
+
+            await DatabaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("scoreDiffs").Child(playerId).SetValueAsync(myScoreDiff);
+            Debug.Log($"Updated score for player {playerId} in round {roundId} in room {roomId}.");
+            
+            // Update total score atomically using a transaction
+            await DatabaseReference.Child("rooms").Child(roomId).Child("totalScores").Child(playerId).RunTransaction(mutableData =>
+            {
+                int totalScore = StartingPlayerScore;
+
+                // Check the current value of totalScore
+                if (mutableData.Value != null)
+                {
+                    totalScore = Convert.ToInt32(mutableData.Value);
+                }
+
+                // Increment the totalScore by the calculated score difference
+                totalScore += myScoreDiff;
+
+                // Save the updated value
+                mutableData.Value = totalScore;
+
+                return TransactionResult.Success(mutableData);
+            });
+
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Failed to calculate and set player round score diff for player {playerId} in room {roomId} and round {roundId}: {e.Message}");
+        }
+    }
+}

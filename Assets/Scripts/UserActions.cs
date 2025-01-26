@@ -55,23 +55,34 @@ public class UserActions: MonoBehaviour
         });
     }
 
-    public void UserClickedCreateRoom () {
-        this.firebaseWriteAPI.CreateRoomAsync(playerNameInput.text).ContinueWithOnMainThread(task => {
-            if (task.IsCompletedSuccessfully)
-            {
-                var result = task.Result;
-                currentRoomId = result.roomId;
-                currentPlayerId = result.playerId;
+    public void UserClickedCreateRoom()
+    {
+        _ = HandleRoomCreationAsync(); // Fire-and-forget the async task
+    }
 
-                Debug.Log($"Room created with ID: {currentRoomId}, Player ID: {currentPlayerId}");
-                
-                ObserveRounds(currentRoomId);
-            }
-            else
-            {
-                Debug.LogError("Failed to create room: " + task.Exception?.Message);
-            }
-        });
+    private async Task HandleRoomCreationAsync()
+    {
+        try
+        {
+            // Attempt to create a room asynchronously
+            var createRoomResult = await this.firebaseWriteAPI.CreateRoomAsync();
+            currentRoomId = createRoomResult;
+
+            Debug.Log($"Room created with ID: {currentRoomId}");
+
+            // Attempt to join the created room asynchronously
+            var joinRoomResult = await firebaseWriteAPI.JoinRoomAsync(createRoomResult, playerNameInput.text);
+            currentPlayerId = joinRoomResult;
+
+            Debug.Log($"Room joined with ID: {currentRoomId}, Player ID: {currentPlayerId}");
+
+            // Start observing rounds for the created room
+            ObserveRounds(currentRoomId);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"Failed to create or join the room: {ex.Message}");
+        }
     }
 
     public void UserClickedJoinRoom () {

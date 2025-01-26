@@ -25,15 +25,19 @@ public class NewTestScript
         Assert.IsTrue(firebaseInit);
 
         // Create room and have players join it
-        var roomCreationResult = await firebaseWriteAPI.CreateRoomAsync(playerOneName);
-        Debug.Log("CreateRoomAndJoinRoom Room Created with ID: " + roomCreationResult.roomId +"and user ID: " + roomCreationResult.playerId);
-        var joinRoomResultSecond = await firebaseWriteAPI.JoinRoomAsync(roomCreationResult.roomId, playerTwoName);
+        var roomCreationResult = await firebaseWriteAPI.CreateRoomAsync();
+        Debug.Log("CreateRoomAndJoinRoom Room Created with ID: " + roomCreationResult);
+        
+        // Join in
+        var joinRoomResultFirst = await firebaseWriteAPI.JoinRoomAsync(roomCreationResult, playerOneName);
+        Debug.Log("CreateRoomAndJoinRoom Room Joined for user ID: " + joinRoomResultFirst);
+        var joinRoomResultSecond = await firebaseWriteAPI.JoinRoomAsync(roomCreationResult, playerTwoName);
         Debug.Log("CreateRoomAndJoinRoom Room Joined for user ID: " + joinRoomResultSecond);
-        var joinRoomResultThird = await firebaseWriteAPI.JoinRoomAsync(roomCreationResult.roomId, playerThreeName);
+        var joinRoomResultThird = await firebaseWriteAPI.JoinRoomAsync(roomCreationResult, playerThreeName);
         Debug.Log("CreateRoomAndJoinRoom Room Joined for user ID: " + joinRoomResultThird);
         
         // Check ready states
-        var allPlayers = await firebaseAPIFetch.GetAllPlayersAsync(roomCreationResult.roomId);
+        var allPlayers = await firebaseAPIFetch.GetAllPlayersAsync(roomCreationResult);
         // Print out each player
         foreach (var player in allPlayers)
         {
@@ -43,49 +47,59 @@ public class NewTestScript
         Assert.AreEqual(3, allPlayers.Count);
         
         // Check ready states
-        var statusesBeforeReady =  await firebaseAPIFetch.GetAllIsReadyAsync(roomCreationResult.roomId,0);
+        var statusesBeforeReady =  await firebaseAPIFetch.GetAllIsReadyAsync(roomCreationResult,0);
         Assert.AreEqual(3, statusesBeforeReady.Count);
         Assert.IsFalse(statusesBeforeReady[0].Ready);
         Assert.IsFalse(statusesBeforeReady[1].Ready);
         Assert.IsFalse(statusesBeforeReady[2].Ready);
 
         // Players ready-up
-        await firebaseWriteAPI.UpdateIsReadyForPlayerAsync(roomCreationResult.roomId,0,roomCreationResult.playerId,true);
-        await firebaseWriteAPI.UpdateIsReadyForPlayerAsync(roomCreationResult.roomId,0,joinRoomResultSecond,true);
-        await firebaseWriteAPI.UpdateIsReadyForPlayerAsync(roomCreationResult.roomId,0,joinRoomResultThird,true);
+        await firebaseWriteAPI.UpdateIsReadyForPlayerAsync(roomCreationResult,0,joinRoomResultFirst,true);
+        await firebaseWriteAPI.UpdateIsReadyForPlayerAsync(roomCreationResult,0,joinRoomResultSecond,true);
+        await firebaseWriteAPI.UpdateIsReadyForPlayerAsync(roomCreationResult,0,joinRoomResultThird,true);
         
         // Check ready states
-        var statusesAfterReady =  await firebaseAPIFetch.GetAllIsReadyAsync(roomCreationResult.roomId,0);
+        var statusesAfterReady =  await firebaseAPIFetch.GetAllIsReadyAsync(roomCreationResult,0);
         Assert.AreEqual(3, statusesAfterReady.Count);
         Assert.IsTrue(statusesAfterReady[0].Ready);
         Assert.IsTrue(statusesAfterReady[1].Ready);
         Assert.IsTrue(statusesAfterReady[2].Ready);
         
         // Update available opponents for each player
-        await firebaseWriteAPI.UpdateAvailableOpponentAsync(roomCreationResult.roomId,0, roomCreationResult.playerId,new [] { playerTwoName, playerThreeName });
-        await firebaseWriteAPI.UpdateAvailableOpponentAsync(roomCreationResult.roomId,0, joinRoomResultSecond,new [] {playerOneName, playerThreeName});
-        await firebaseWriteAPI.UpdateAvailableOpponentAsync(roomCreationResult.roomId,0, joinRoomResultThird,new [] {playerOneName, playerTwoName});
+        await firebaseWriteAPI.UpdateAvailableOpponentAsync(roomCreationResult,0, joinRoomResultFirst,new [] { joinRoomResultSecond, joinRoomResultThird });
+        await firebaseWriteAPI.UpdateAvailableOpponentAsync(roomCreationResult,0, joinRoomResultSecond,new [] {joinRoomResultFirst, joinRoomResultThird});
+        await firebaseWriteAPI.UpdateAvailableOpponentAsync(roomCreationResult,0, joinRoomResultThird,new [] {joinRoomResultFirst, joinRoomResultSecond});
         
         // Read available opponents for each player
-        var opponentsForPlayerOne = await firebaseAPIFetch.GetAvailableOpponentAsync(roomCreationResult.roomId,0, roomCreationResult.playerId);
-        var opponentsForPlayerTwo = await firebaseAPIFetch.GetAvailableOpponentAsync(roomCreationResult.roomId,0, joinRoomResultSecond);
-        var opponentsForPlayerThree = await firebaseAPIFetch.GetAvailableOpponentAsync(roomCreationResult.roomId,0, joinRoomResultThird);
+        var opponentsForPlayerOne = await firebaseAPIFetch.GetAvailableOpponentAsync(roomCreationResult,0, joinRoomResultFirst);
+        var opponentsForPlayerTwo = await firebaseAPIFetch.GetAvailableOpponentAsync(roomCreationResult,0, joinRoomResultSecond);
+        var opponentsForPlayerThree = await firebaseAPIFetch.GetAvailableOpponentAsync(roomCreationResult,0, joinRoomResultThird);
         Assert.AreEqual(2, opponentsForPlayerOne.Count);
         Assert.AreEqual(2, opponentsForPlayerTwo.Count);
         Assert.AreEqual(2, opponentsForPlayerThree.Count);
         
-        Assert.AreEqual(playerTwoName, opponentsForPlayerOne[0]);
-        Assert.AreEqual(playerThreeName, opponentsForPlayerOne[1]);
+        Assert.AreEqual(joinRoomResultSecond, opponentsForPlayerOne[0]);
+        Assert.AreEqual(joinRoomResultThird, opponentsForPlayerOne[1]);
         
-        Assert.AreEqual(playerOneName, opponentsForPlayerTwo[0]);
-        Assert.AreEqual(playerThreeName, opponentsForPlayerTwo[1]);
+        Assert.AreEqual(joinRoomResultFirst, opponentsForPlayerTwo[0]);
+        Assert.AreEqual(joinRoomResultThird, opponentsForPlayerTwo[1]);
         
-        Assert.AreEqual(playerOneName, opponentsForPlayerThree[0]);
-        Assert.AreEqual(playerTwoName, opponentsForPlayerThree[1]);
+        Assert.AreEqual(joinRoomResultFirst, opponentsForPlayerThree[0]);
+        Assert.AreEqual(joinRoomResultSecond, opponentsForPlayerThree[1]);
         
         // Create battle pairs
-        await firebaseWriteAPI.CreateBattlePair(roomCreationResult.roomId,0,roomCreationResult.playerId,joinRoomResultSecond);
-        await firebaseWriteAPI.CreateBattlePairEmpty(roomCreationResult.roomId,0,joinRoomResultThird);
+        await firebaseWriteAPI.CreateBattlePair(roomCreationResult,0,joinRoomResultFirst,joinRoomResultSecond);
+        await firebaseWriteAPI.CreateBattlePairEmpty(roomCreationResult,0,joinRoomResultThird);
+        
+        // Players play ACTIONS
+        await firebaseWriteAPI.UpdatePlayerAction(roomCreationResult, 0, joinRoomResultFirst, BubbleBattleAction.Merge);
+        await firebaseWriteAPI.UpdatePlayerAction(roomCreationResult, 0, joinRoomResultSecond, BubbleBattleAction.Merge);
+        await firebaseWriteAPI.UpdatePlayerAction(roomCreationResult, 0, joinRoomResultThird, BubbleBattleAction.NoAction);
+        
+        // Each player calculates their score
+        await firebaseWriteAPI.CalculateAndSetPlayerRoundScoreDiff(roomCreationResult, 0, joinRoomResultFirst);
+        await firebaseWriteAPI.CalculateAndSetPlayerRoundScoreDiff(roomCreationResult, 0, joinRoomResultSecond);
+        await firebaseWriteAPI.CalculateAndSetPlayerRoundScoreDiff(roomCreationResult, 0, joinRoomResultThird);
 
         // Clean up
         GameObject.DestroyImmediate(gameObject);

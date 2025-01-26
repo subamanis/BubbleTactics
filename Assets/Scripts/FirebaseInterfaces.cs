@@ -17,15 +17,28 @@ public class BubbleBattlePair
 {
     public string FirebaseIdPlayer { get; set; }
     public string FirebaseIdOpponent { get; set; }
-    public BabbleBattleAction Action { get; set; }
+    public BubbleBattleAction Action { get; set; }
 }
 
-public enum BabbleBattleAction
+public enum BubbleBattleAction
 {
     Error,
     NoOpponent,
-    None,
+    NoAction,
     Merge,
     Pop,
     Float
 };
+
+public static class BabbleBattleScoreCalculator
+{
+    public static int CalculateScore(BubbleBattleAction myAction, BubbleBattleAction opponentAction)
+    {
+        if (myAction == BubbleBattleAction.Merge && opponentAction == BubbleBattleAction.Merge)
+        {
+            return 2;
+        }
+        
+        throw new System.NotImplementedException("Score calculation not implemented for action: " + myAction + " and opponent action: " + opponentAction + "");
+    }
+}
