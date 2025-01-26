@@ -17,12 +17,18 @@ public class UserActions: MonoBehaviour
     public int CurrentRoundId { get; private set; } // Store the current round ID
     public Dictionary<string, object> CurrentRoundData { get; private set; } // Store the current round's data
 
+    public void Awake()
+    {
+        FirebaseDatabase.DefaultInstance.SetPersistenceEnabled(false);
+    }
 
-    void Start() {
+    public void Start() {
         databaseReference = FirebaseDatabase.DefaultInstance.RootReference;
         this.firebaseFetchAPI = this.GetComponent<FirebaseAPIFetch>();
         this.firebaseWriteAPI = this.GetComponent<FirebaseWriteAPI>();
-        
+
+        this.firebaseFetchAPI.databaseReference = databaseReference;
+        this.firebaseWriteAPI.databaseReference = databaseReference;
     }
 
     public void UserClickedCreateRoom () {

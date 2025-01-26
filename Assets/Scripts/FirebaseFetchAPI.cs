@@ -6,38 +6,7 @@ using Firebase.Extensions;
 
 public class FirebaseAPIFetch : MonoBehaviour
 {
-    private DatabaseReference databaseReference;
-
-    void Start()
-    {
-        // FirebaseDatabase.DefaultInstance.RootReference.KeepSynced(true);
-        databaseReference = FirebaseDatabase.DefaultInstance.RootReference;
-        databaseReference.KeepSynced(true);
-
-        GetAllPlayersAsync("73882").ContinueWithOnMainThread(task =>
-        {
-            if (task.IsCompletedSuccessfully)
-            {
-                var result = task.Result;
-                Debug.Log($"Thanasis Players: {result}");
-
-                // Debug.Log($"Thanasis Players: {task.Result["id"]}");
-                // convert to dictionary
-                foreach (var playerSnapshot in task.Result)
-                {
-                    string playerId = playerSnapshot.Key;
-                    var playerData = new Dictionary<string, object>();
-                    // console log print dictionary
-                    Debug.Log($"Thanasis Player: {playerData["name"]}");
-                    Debug.Log($"Thanasis Player Data: {playerData["joinTime"]}");
-                }
-            }
-            else
-            {
-                Debug.LogError("Failed to fetch players: " + task.Exception?.Message);
-            }
-        });
-    }
+    public  DatabaseReference databaseReference { get; set; }
 
     public async Task<bool?> GetHasGameStartedAsync(string roomId)
     {
@@ -59,9 +28,9 @@ public class FirebaseAPIFetch : MonoBehaviour
         return hasGameStarted;
     }
 
-    public async Task<Dictionary<string, Dictionary<string, object>>> GetAllPlayersAsync(string roomId)
+    public async Task<IList<BubblePlayer>> GetAllPlayersAsync(string roomId)
     {
-        var players = new Dictionary<string, Dictionary<string, object>>();
+        var players = new  List<BubblePlayer>();
 
         try
         {
@@ -70,36 +39,29 @@ public class FirebaseAPIFetch : MonoBehaviour
 
             if (snapshot.Exists)
             {
-                //Log whole snapshot
-                Debug.Log($"Thanasis Snapshot: {snapshot.GetRawJsonValue()}");
-                
-                // var playersDictionary = (snapshot.Value as Dictionary<string, object>)["players"];
-                //
-                // // Print dictionary snapshot.Value
-                // foreach (var eachKey in playersDictionary as Dictionary<string, object>)
-                // {
-                //     Debug.Log($"Thanasis Snapshot inner: {eachKey.Key}");
-                //     
-                //     var innerPlayerValues = eachKey.Value as Dictionary<string, object>;
-                //     foreach (var innerPlayerValue in innerPlayerValues)
-                //     {
-                //         Debug.Log($"Thanasis Snapshot inner inner key: {innerPlayerValue.Key}");
-                //         Debug.Log($"Thanasis Snapshot inner inner value: {innerPlayerValue.Value}");
-                //     }
-                // }
-                
-                foreach (var playerSnapshot in snapshot.Children)
+               
+                foreach (var child in snapshot.Children)
                 {
-                    string playerId = playerSnapshot.Key;
-                    var playerData = new Dictionary<string, object>();
-
-                    foreach (var child in playerSnapshot.Children)
+                    try
                     {
-                        playerData[child.Key] = child.Value;
+                        var playerData = child.Value as Dictionary<string, object>;
+                        if (playerData != null)
+                        {
+                            BubblePlayer player = new BubblePlayer
+                            {
+                                FirebaseId = child.Key,
+                                Name = playerData["name"].ToString(),
+                                JoinTime = long.Parse(playerData["joinTime"].ToString())
+                            };
+                            players.Add(player);
+                        }
                     }
-
-                    players[playerId] = playerData;
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogError($"Failed to parse player data for child {child.Key}: {ex.Message}");
+                    }
                 }
+                
             }
         }
         catch (System.Exception ex)

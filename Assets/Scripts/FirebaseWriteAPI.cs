@@ -6,11 +6,7 @@ using UnityEngine;
 
 public class FirebaseWriteAPI: MonoBehaviour
 {
-    private DatabaseReference databaseReference;
-
-    void Start(){
-        databaseReference = FirebaseDatabase.DefaultInstance.RootReference;
-    }
+    public DatabaseReference databaseReference { get; set; }
 
     private string GenerateFiveDigitRoomId()
     {
