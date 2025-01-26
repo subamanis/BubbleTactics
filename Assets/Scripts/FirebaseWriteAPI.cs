@@ -254,5 +254,38 @@ public class FirebaseWriteAPI: MonoBehaviour
         }
     }
 
+    public async Task CreateBattlePair(string roomId, int roundId, string playerOneSide, string playerOtherSide)
+    {
+        try
+        {
+            await DatabaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("battlePairs").Child(playerOneSide).SetValueAsync(new Dictionary<string, object>
+            {
+                { "opponent" , playerOtherSide }
+            });
+            await DatabaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("battlePairs").Child(playerOtherSide).SetValueAsync(new Dictionary<string, object>
+            {
+                { "opponent" , playerOneSide }
+            });
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Failed to create battle pair for player {playerOneSide} and {playerOtherSide} in room {roomId} and round {roundId}: {e.Message}");
+        }
+    }
+
+    public async Task CreateBattlePairEmpty(string roomId, int roundId, string playerNoBattle)
+    {
+        try
+        {
+            await DatabaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("battlePairs").Child(playerNoBattle).SetValueAsync(new Dictionary<string, string>
+            {
+                { "action", BabbleBattleAction.NoOpponent.ToString()}
+            });
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Failed to create empty battle pair for player {playerNoBattle} in room {roomId} and round {roundId}: {e.Message}");
+        }
+    }
 }
 

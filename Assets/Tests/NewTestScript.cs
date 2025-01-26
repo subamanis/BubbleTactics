@@ -84,8 +84,8 @@ public class NewTestScript
         Assert.AreEqual(playerTwoName, opponentsForPlayerThree[1]);
         
         // Create battle pairs
-        // firebaseWriteAPI.
-        
+        await firebaseWriteAPI.CreateBattlePair(roomCreationResult.roomId,0,roomCreationResult.playerId,joinRoomResultSecond);
+        await firebaseWriteAPI.CreateBattlePairEmpty(roomCreationResult.roomId,0,joinRoomResultThird);
 
         // Clean up
         GameObject.DestroyImmediate(gameObject);
