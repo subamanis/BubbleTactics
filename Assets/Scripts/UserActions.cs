@@ -71,7 +71,7 @@ public class UserActions: MonoBehaviour
             Debug.Log($"Room created with ID: {currentRoomId}");
 
             // Attempt to join the created room asynchronously
-            var joinRoomResult = await firebaseWriteAPI.JoinRoomAsync(createRoomResult, playerNameInput.text);
+            var joinRoomResult = await firebaseWriteAPI.JoinRoomAsync(createRoomResult, playerNameInput.text, true);
             currentPlayerId = joinRoomResult;
 
             Debug.Log($"Room joined with ID: {currentRoomId}, Player ID: {currentPlayerId}");
@@ -105,7 +105,9 @@ public class UserActions: MonoBehaviour
     }
 
     public void UserClickedReady () {
-        this.firebaseWriteAPI.UpdateIsReadyForPlayerAsync(currentRoomId, CurrentRoundId, currentPlayerId, true).ContinueWith(task => {});
+        this.firebaseWriteAPI.UpdateIsReadyForPlayerAsync(currentRoomId, CurrentRoundId, currentPlayerId, true).ContinueWith(task => {
+            ObserveIsReady(currentRoomId, CurrentRoundId.ToString());
+        });
     }
 
     private void ObserveRounds(string roomId)
@@ -153,6 +155,54 @@ public class UserActions: MonoBehaviour
 
             Debug.Log($"Current Round ID: {CurrentRoundId}");
             Debug.Log($"Current Round Data: {CurrentRoundData}");
+        }
+        else
+        {
+            Debug.LogWarning("No rounds found for this room.");
+        }
+    }
+
+    private void ObserveIsReady(string roomId, string roundId)
+    {
+        DatabaseReference roundsRef = databaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId).Child("isReady");
+
+        Debug.Log($"observer isReady before create");
+        roundsRef.ValueChanged += IsReadyObserver;
+    }
+
+    private void IsReadyObserver(object _, ValueChangedEventArgs args)
+    {
+        Debug.Log($"observer isReady created");
+        if (args.DatabaseError != null)
+        {
+            Debug.LogError($"Failed to observe isReady key: {args.DatabaseError.Message}");
+            return;
+        }
+
+        if (args.Snapshot.Exists)
+        {
+            bool areAllPlayersReady = true;
+
+            foreach (var isReadySnapshot in args.Snapshot.Children)
+            {
+                // Check the value of each player's isReady key
+                bool isPlayerReady = bool.Parse(isReadySnapshot.Value.ToString());
+                if (!isPlayerReady)
+                {
+                    areAllPlayersReady = false;
+                    break; // Exit early if any player is not ready
+                }
+            }
+
+            if (areAllPlayersReady)
+            {
+                Debug.Log("All players are ready.");
+                // Handle the event when all players are ready
+            }
+            else
+            {
+                Debug.Log("Not all players are ready.");
+            }
         }
         else
         {
