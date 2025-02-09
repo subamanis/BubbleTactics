@@ -14,12 +14,12 @@ public class UserActions: MonoBehaviour
     private FirebaseWriteAPI firebaseWriteAPI;
     public TMP_InputField roomIdInput;
     public TMP_InputField playerNameInput;
-    // private string currentPlayerId;
-    private string currentPlayerId = "-OIeaTMkzM2bTGud64so";
-    // private string currentRoomId;
-    private string currentRoomId = "67433";
+    private string currentPlayerId;
+    // private string currentPlayerId = "-OIeaTMkzM2bTGud64so";
+    private string currentRoomId;
+    // private string currentRoomId = "67433";
     private BubbleBattleAction playerRoundAction = BubbleBattleAction.NoAction;
-    public int CurrentRoundId { get; private set; }  = 1; // Store the current round ID
+    public int CurrentRoundId { get; private set; } = 0; // Store the current round ID
     public Dictionary<string, object> CurrentRoundData { get; private set; } // Store the current round's data
 
 
@@ -34,9 +34,8 @@ public class UserActions: MonoBehaviour
         {
             Debug.Log("Init Firebase with status: " + result.Result);
             ObserveRounds(currentRoomId);
-            Debug.Log("lianos");
-            // ObserveIsReady(currentRoomId, CurrentRoundId.ToString());
-            ObservePlayerActions(currentRoomId, CurrentRoundId.ToString());
+            ObserveIsReady(currentRoomId, CurrentRoundId.ToString());
+            // ObservePlayerActions(currentRoomId);
         });
         
     }
@@ -134,6 +133,7 @@ public class UserActions: MonoBehaviour
 
     public void UserClickedLock()
     {
+        Debug.Log($"UserClickedLock locking {this.playerRoundAction}");
         if (this.playerRoundAction == BubbleBattleAction.NoAction)
         {
             print("No player action selected, while trying to set player action in DB");
@@ -145,17 +145,16 @@ public class UserActions: MonoBehaviour
 
     private void ObserveRounds(string roomId)
     {
-        Debug.Log($"observer 1" + roomId);
+        Debug.Log($"creating rounds observer");
 
         DatabaseReference roundsRef = databaseReference.Child("rooms").Child(roomId).Child("rounds");
 
-        Debug.Log($"observer 2");
         roundsRef.ValueChanged += RoundsObserver;
     }
 
     private void RoundsObserver(object _, ValueChangedEventArgs args)
     {
-        Debug.Log($"observer 3");
+        Debug.Log($"calling rounds observer");
         if (args.DatabaseError != null)
         {
             Debug.LogError($"Failed to observe rounds: {args.DatabaseError.Message}");
@@ -185,9 +184,8 @@ public class UserActions: MonoBehaviour
 
             CurrentRoundId = latestRoundId;
             CurrentRoundData = latestRoundData;
-
             Debug.Log($"Current Round ID: {CurrentRoundId}");
-            Debug.Log($"Current Round Data: {CurrentRoundData}");
+            // Debug.Log($"Current Round Data: {CurrentRoundData}");
         }
         else
         {
@@ -197,15 +195,15 @@ public class UserActions: MonoBehaviour
 
     private void ObserveIsReady(string roomId, string roundId)
     {
+        Debug.Log($"creating isReady observer");
         DatabaseReference roundsRef = databaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId).Child("isReady");
 
-        Debug.Log($"observer isReady before create");
         roundsRef.ValueChanged += IsReadyObserver;
     }
-
+    
     private async void IsReadyObserver(object _, ValueChangedEventArgs args)
     {
-        Debug.Log($"observer isReady created");
+        Debug.Log($"calling observer isReady");
         if (args.DatabaseError != null)
         {
             Debug.LogError($"Failed to observe isReady key: {args.DatabaseError.Message}");
@@ -242,6 +240,8 @@ public class UserActions: MonoBehaviour
                     {
                         await this.firebaseWriteAPI.CalculateBattlePairs(currentRoomId, CurrentRoundId);
                         Debug.Log("Battle pairs calculated successfully.");
+                        ObservePlayerActions(currentRoomId);
+
                     }
                     catch (System.Exception ex)
                     {
@@ -264,22 +264,22 @@ public class UserActions: MonoBehaviour
         }
     }
 
-    private void ObservePlayerActions(string roomId, string roundId)
+    private void ObservePlayerActions(string roomId)
     {
+        Debug.Log($"creating observer player actions {roomId} - {this.CurrentRoundId.ToString()}");
         DatabaseReference battlePairsRef = databaseReference
             .Child("rooms")
             .Child(roomId)
             .Child("rounds")
-            .Child(roundId)
+            .Child(this.CurrentRoundId.ToString())
             .Child("battlePairs");
 
-        Debug.Log($"observer battlePairs before create");
         battlePairsRef.ValueChanged += PlayerActionsObserver;
     }
 
     private async void PlayerActionsObserver(object _, ValueChangedEventArgs args)
     {
-        Debug.Log($"observer battlePairs created");
+        Debug.Log($"calling observer player actions");
 
         if (args.DatabaseError != null)
         {
