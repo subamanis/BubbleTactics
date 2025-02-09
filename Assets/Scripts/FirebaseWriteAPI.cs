@@ -113,6 +113,7 @@ public class FirebaseWriteAPI : MonoBehaviour
             // Get the existing rounds to determine the new round ID
             DataSnapshot roundsSnapshot = await roundsRef.GetValueAsync();
             int newRoundId = 1;
+            int lastRoundId = -1;
 
             if (roundsSnapshot.Exists && roundsSnapshot.ChildrenCount > 0)
             {
@@ -123,11 +124,13 @@ public class FirebaseWriteAPI : MonoBehaviour
                     if (roundId >= newRoundId)
                     {
                         newRoundId = roundId + 1;
+                        lastRoundId = roundId; // Track the last round ID
                     }
                 }
             }
 
             Dictionary<string, bool> readyStatesForThisRound = new Dictionary<string, bool>();
+            Dictionary<string, string> availableOpponents = new Dictionary<string, string>();
 
             // Get players
             DataSnapshot playersSnapshot = await DatabaseReference.Child("rooms").Child(roomId).Child("players").GetValueAsync();
@@ -138,11 +141,25 @@ public class FirebaseWriteAPI : MonoBehaviour
                 readyStatesForThisRound.Add(player.Key, false);
             }
 
+            // Fetch available opponents from the last round if it exists
+            if (lastRoundId != -1)
+            {
+                DataSnapshot lastRoundSnapshot = await roundsRef.Child(lastRoundId.ToString()).Child("availableOpponents").GetValueAsync();
+                if (lastRoundSnapshot.Exists)
+                {
+                    foreach (var player in lastRoundSnapshot.Children)
+                    {
+                        availableOpponents[player.Key] = player.Value.ToString();
+                    }
+                }
+            }
+
             // Default data for the new round
             var newRoundData = new Dictionary<string, object>
             {
                 { "roundCreationTime", GetUnixTimestamp() }, // Unix timestamp for round creation time
                 { "isReady", readyStatesForThisRound },
+                { "availableOpponents", availableOpponents }
             };
 
             // Write the new round to the database

@@ -34,6 +34,7 @@ public class UserActions: MonoBehaviour
             ObserveRounds(currentRoomId);
             Debug.Log("lianos");
             // ObserveIsReady(currentRoomId, CurrentRoundId.ToString());
+            ObservePlayerActions(currentRoomId, CurrentRoundId.ToString());
         });
         
     }
@@ -214,10 +215,9 @@ public class UserActions: MonoBehaviour
             {
                 Debug.Log("All players are ready.");
 
-                bool isInLastPlace = await IsCurrentPlayerInLastPlaceAsync(currentRoomId, CurrentRoundId.ToString(), currentPlayerId);
                 bool isFirstPlayer = await IsCurrentPlayerFirstAsync(currentRoomId, currentPlayerId);
 
-                if (isInLastPlace || isFirstPlayer)
+                if (isFirstPlayer)
                 {
                     Debug.Log("Handling game logic because the current player is in last place or joined first.");
 
@@ -245,6 +245,114 @@ public class UserActions: MonoBehaviour
         else
         {
             Debug.LogWarning("No rounds found for this room.");
+        }
+    }
+
+    private void ObservePlayerActions(string roomId, string roundId)
+    {
+        DatabaseReference battlePairsRef = databaseReference
+            .Child("rooms")
+            .Child(roomId)
+            .Child("rounds")
+            .Child(roundId)
+            .Child("battlePairs");
+
+        Debug.Log($"observer battlePairs before create");
+        battlePairsRef.ValueChanged += PlayerActionsObserver;
+    }
+
+    private async void PlayerActionsObserver(object _, ValueChangedEventArgs args)
+    {
+        Debug.Log($"observer battlePairs created");
+
+        if (args.DatabaseError != null)
+        {
+            Debug.LogError($"Failed to observe battle pairs: {args.DatabaseError.Message}");
+            return;
+        }
+
+        if (args.Snapshot.Exists)
+        {
+            bool allPlayersHaveAction = true;
+            List<string> allPlayers = new List<string>();
+
+            // Fetch all players from the room
+            DataSnapshot playersSnapshot = await databaseReference
+                .Child("rooms")
+                .Child(currentRoomId)
+                .Child("players")
+                .GetValueAsync();
+
+            if (!playersSnapshot.Exists)
+            {
+                Debug.LogError("No players found in the room.");
+                return;
+            }
+
+            // Collect all player IDs
+            foreach (var playerSnapshot in playersSnapshot.Children)
+            {
+                allPlayers.Add(playerSnapshot.Key);
+            }
+
+            // Check actions for all players inside battlePairs
+            foreach (var playerSnapshot in args.Snapshot.Children)
+            {
+                string playerId = playerSnapshot.Key;
+
+                // Ensure that action exists inside the battlePairs structure
+                if (!playerSnapshot.Child("action").Exists || string.IsNullOrEmpty(playerSnapshot.Child("action").Value.ToString()))
+                {
+                    allPlayersHaveAction = false;
+                    break; // Exit early if any player is missing an action
+                }
+            }
+
+            if (allPlayersHaveAction)
+            {
+                Debug.Log("All players have selected an action.");
+
+                // bool isInLastPlace = await IsCurrentPlayerInLastPlaceAsync(currentRoomId, CurrentRoundId.ToString(), currentPlayerId);
+                bool isFirstPlayer = await IsCurrentPlayerFirstAsync(currentRoomId, currentPlayerId);
+
+                if (isFirstPlayer)
+                {
+                    Debug.Log("Current player is in last place or first to join, calculating round score diffs...");
+
+                    // Run CalculateAndSetPlayerRoundScoreDiff for every player
+                    List<Task> scoreTasks = new List<Task>();
+
+                    foreach (string playerId in allPlayers)
+                    {
+                        scoreTasks.Add(firebaseWriteAPI.CalculateAndSetPlayerRoundScoreDiff(currentRoomId, CurrentRoundId, playerId));
+                    }
+
+                    try
+                    {
+                        await Task.WhenAll(scoreTasks);
+                        Debug.Log("Successfully calculated and set round score diffs for all players.");
+                        // Create the next round after updating scores
+                        await firebaseWriteAPI.CreateNewRoundAsync(currentRoomId);
+                        Debug.Log("Next round created successfully.");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError($"Error calculating player round score diffs or creating next round: {ex.Message}");
+                    }
+                }
+                else
+                {
+                    Debug.Log("All players have chosen an action, but the current player is neither first nor last.");
+                }
+            }
+            else
+            {
+                Debug.Log("Not all players have chosen an action yet.");
+            }
+        }
+        else
+        {
+            Debug.LogWarning("No battlePairs data found for this round.");
         }
     }
 
