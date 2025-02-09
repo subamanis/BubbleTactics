@@ -9,7 +9,19 @@ using UnityEngine;
 
 public class UserActions: MonoBehaviour
 {
+    enum GameState
+    {
+        Idle,
+        JoiningRoom,
+        WaitingForPlayersReady,
+        WaitingForPlayerActions,
+        ResolvingActions,
+    }
+
     private DatabaseReference databaseReference;
+    private DatabaseReference roundsRef;
+    private DatabaseReference isRoundReadyRef;
+    private DatabaseReference battlePairsRef;
     private FirebaseAPIFetch firebaseFetchAPI;
     private FirebaseWriteAPI firebaseWriteAPI;
     public TMP_InputField roomIdInput;
@@ -19,6 +31,7 @@ public class UserActions: MonoBehaviour
     private string currentRoomId;
     // private string currentRoomId = "67433";
     private BubbleBattleAction playerRoundAction = BubbleBattleAction.NoAction;
+    private GameState gameState = GameState.Idle;
     public int CurrentRoundId { get; private set; } = 0; // Store the current round ID
     public Dictionary<string, object> CurrentRoundData { get; private set; } // Store the current round's data
 
@@ -32,9 +45,9 @@ public class UserActions: MonoBehaviour
     {
         InitFirebase().ContinueWithOnMainThread((result) =>
         {
+            this.gameState = GameState.JoiningRoom;
             Debug.Log("Init Firebase with status: " + result.Result);
-            ObserveRounds(currentRoomId);
-            ObserveIsReady(currentRoomId, CurrentRoundId.ToString());
+            //ObserveRounds(currentRoomId);
             // ObservePlayerActions(currentRoomId);
         });
         
@@ -82,6 +95,8 @@ public class UserActions: MonoBehaviour
             var joinRoomResult = await firebaseWriteAPI.JoinRoomAsync(createRoomResult, playerNameInput.text, true);
             currentPlayerId = joinRoomResult;
 
+            this.gameState = GameState.WaitingForPlayersReady;
+
             Debug.Log($"Room joined with ID: {currentRoomId}, Player ID: {currentPlayerId}");
 
             // Start observing rounds for the created room
@@ -99,6 +114,8 @@ public class UserActions: MonoBehaviour
             {
                 currentRoomId = roomIdInput.text;
                 currentPlayerId = task.Result;
+
+                this.gameState = GameState.WaitingForPlayersReady;
 
                 Debug.Log($"Joined room with ID: {currentRoomId}, Player ID: {currentPlayerId}");
 
@@ -147,13 +164,22 @@ public class UserActions: MonoBehaviour
     {
         Debug.Log($"creating rounds observer");
 
-        DatabaseReference roundsRef = databaseReference.Child("rooms").Child(roomId).Child("rounds");
+        if (this.roundsRef != null)
+        {
+            this.roundsRef.ValueChanged -= RoundsObserver;
+        } 
 
-        roundsRef.ValueChanged += RoundsObserver;
+        this.roundsRef = databaseReference.Child("rooms").Child(roomId).Child("rounds");
+
+        this.roundsRef.ValueChanged += RoundsObserver;
     }
 
     private void RoundsObserver(object _, ValueChangedEventArgs args)
     {
+        if (this.gameState is not GameState.WaitingForPlayersReady) {
+            return;
+        }
+
         Debug.Log($"calling rounds observer");
         if (args.DatabaseError != null)
         {
@@ -186,6 +212,8 @@ public class UserActions: MonoBehaviour
             CurrentRoundData = latestRoundData;
             Debug.Log($"Current Round ID: {CurrentRoundId}");
             // Debug.Log($"Current Round Data: {CurrentRoundData}");
+
+            ObserveIsReady(currentRoomId, CurrentRoundId.ToString());
         }
         else
         {
@@ -195,14 +223,23 @@ public class UserActions: MonoBehaviour
 
     private void ObserveIsReady(string roomId, string roundId)
     {
-        Debug.Log($"creating isReady observer");
-        DatabaseReference roundsRef = databaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId).Child("isReady");
+        if (this.battlePairsRef != null)
+        {
+            this.isRoundReadyRef.ValueChanged -= IsReadyObserver;
+        }
 
-        roundsRef.ValueChanged += IsReadyObserver;
+        Debug.Log($"creating isReady observer");
+        this.isRoundReadyRef = databaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId).Child("isReady");
+
+        this.isRoundReadyRef.ValueChanged += IsReadyObserver;
     }
     
     private async void IsReadyObserver(object _, ValueChangedEventArgs args)
     {
+        if (this.gameState is not GameState.WaitingForPlayersReady) {
+            return;
+        }
+
         Debug.Log($"calling observer isReady");
         if (args.DatabaseError != null)
         {
@@ -227,6 +264,7 @@ public class UserActions: MonoBehaviour
 
             if (areAllPlayersReady)
             {
+                this.gameState = GameState.WaitingForPlayerActions;
                 Debug.Log("All players are ready.");
 
                 bool isFirstPlayer = await IsCurrentPlayerFirstAsync(currentRoomId, currentPlayerId);
@@ -240,8 +278,8 @@ public class UserActions: MonoBehaviour
                     {
                         await this.firebaseWriteAPI.CalculateBattlePairs(currentRoomId, CurrentRoundId);
                         Debug.Log("Battle pairs calculated successfully.");
-                        ObservePlayerActions(currentRoomId);
 
+                        ObservePlayerActions(currentRoomId);
                     }
                     catch (System.Exception ex)
                     {
@@ -266,19 +304,28 @@ public class UserActions: MonoBehaviour
 
     private void ObservePlayerActions(string roomId)
     {
+        if (this.battlePairsRef != null)
+        {
+            this.battlePairsRef.ValueChanged -= PlayerActionsObserver;
+        }
+
         Debug.Log($"creating observer player actions {roomId} - {this.CurrentRoundId.ToString()}");
-        DatabaseReference battlePairsRef = databaseReference
+        this.battlePairsRef = databaseReference
             .Child("rooms")
             .Child(roomId)
             .Child("rounds")
             .Child(this.CurrentRoundId.ToString())
             .Child("battlePairs");
 
-        battlePairsRef.ValueChanged += PlayerActionsObserver;
+        this.battlePairsRef.ValueChanged += PlayerActionsObserver;
     }
 
     private async void PlayerActionsObserver(object _, ValueChangedEventArgs args)
     {
+        if (this.gameState is not GameState.WaitingForPlayerActions) {
+            return;
+        }
+
         Debug.Log($"calling observer player actions");
 
         if (args.DatabaseError != null)
@@ -326,6 +373,8 @@ public class UserActions: MonoBehaviour
 
             if (allPlayersHaveAction)
             {
+                this.gameState = GameState.ResolvingActions;
+
                 Debug.Log("All players have selected an action.");
 
                 // bool isInLastPlace = await IsCurrentPlayerInLastPlaceAsync(currentRoomId, CurrentRoundId.ToString(), currentPlayerId);
@@ -347,6 +396,9 @@ public class UserActions: MonoBehaviour
                     {
                         await Task.WhenAll(scoreTasks);
                         Debug.Log("Successfully calculated and set round score diffs for all players.");
+
+                        this.gameState = GameState.WaitingForPlayersReady;
+
                         // Create the next round after updating scores
                         await firebaseWriteAPI.CreateNewRoundAsync(currentRoomId);
                         Debug.Log("Next round created successfully.");
