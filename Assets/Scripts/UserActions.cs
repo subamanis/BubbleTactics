@@ -135,20 +135,40 @@ public class UserActions: MonoBehaviour
     }
 
     public void UserClickedJoinRoom () {
+        Debug.Log("111111111");
         currentRoomId = roomIdInput.text;
+        Debug.Log("222222222");
 
-        this.firebaseWriteAPI.JoinRoomAsync(roomIdInput.text, playerNameInput.text).ContinueWith(task => {
+
+        this.firebaseWriteAPI.JoinRoomAsync(roomIdInput.text, playerNameInput.text).ContinueWithOnMainThread(task => {
+            Debug.Log("333333333333");
+
             if (task.IsCompletedSuccessfully)
             {
+                Debug.Log("44444444444");
+
                 currentPlayerId = task.Result;
+
+                Debug.Log("55555555555");
+
 
                 this.gameState = GameState.WaitingForPlayersReady;
 
+                Debug.Log("66666666666666");
+
+
                 Debug.Log($"Joined room with ID: {currentRoomId}, Player ID: {currentPlayerId}");
+
+                Debug.Log("7777777777777777");
+
 
                 // Start observing rounds for the joined room
                 ObserveRounds(currentRoomId);
+                Debug.Log("cccccccccccccc");
+
                 OpenLobbyPanel();
+                Debug.Log("dddddddddddddddd");
+
             }
             else
             {
@@ -195,18 +215,28 @@ public class UserActions: MonoBehaviour
         if (this.roundsRef != null)
         {
             this.roundsRef.ValueChanged -= RoundsObserver;
-        } 
+        }
+
+        Debug.Log("9999999999");
+
 
         this.roundsRef = databaseReference.Child("rooms").Child(roomId).Child("rounds");
+        Debug.Log("aaaaaaaaaaa");
+
 
         this.roundsRef.ValueChanged += RoundsObserver;
+        Debug.Log("bbbbbbbbbbbb");
+
     }
 
     private void RoundsObserver(object _, ValueChangedEventArgs args)
     {
+        Debug.Log("before rounds observer");
         if (this.gameState is not GameState.WaitingForPlayersReady) {
             return;
         }
+        Debug.Log("after rounds observer");
+
 
         Debug.Log($"calling rounds observer");
         if (args.DatabaseError != null)
