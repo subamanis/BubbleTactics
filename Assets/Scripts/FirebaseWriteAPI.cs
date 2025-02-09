@@ -134,11 +134,14 @@ public class FirebaseWriteAPI : MonoBehaviour
 
             // Get players
             DataSnapshot playersSnapshot = await DatabaseReference.Child("rooms").Child(roomId).Child("players").GetValueAsync();
+            List<string> allPlayerIds = new List<string>();
 
             // Create ready statuses
             foreach (var player in playersSnapshot.Children)
             {
-                readyStatesForThisRound.Add(player.Key, false);
+                string playerId = player.Key;
+                readyStatesForThisRound.Add(playerId, false);
+                allPlayerIds.Add(playerId);
             }
 
             // Fetch available opponents from the last round if it exists
@@ -149,8 +152,30 @@ public class FirebaseWriteAPI : MonoBehaviour
                 {
                     foreach (var player in lastRoundSnapshot.Children)
                     {
-                        availableOpponents[player.Key] = player.Value.ToString();
+                        string opponents = player.Value.ToString();
+                        if (string.IsNullOrEmpty(opponents))
+                        {
+                            // If the last round's availableOpponents is empty, initialize it with all players except itself
+                            opponents = string.Join(PlayerNameSeparator, allPlayerIds.FindAll(id => id != player.Key));
+                        }
+                        availableOpponents[player.Key] = opponents;
                     }
+                }
+                else
+                {
+                    // If no availableOpponents exist in the last round, initialize for all players
+                    foreach (var playerId in allPlayerIds)
+                    {
+                        availableOpponents[playerId] = string.Join(PlayerNameSeparator, allPlayerIds.FindAll(id => id != playerId));
+                    }
+                }
+            }
+            else
+            {
+                // If there's no last round at all, initialize availableOpponents for all players
+                foreach (var playerId in allPlayerIds)
+                {
+                    availableOpponents[playerId] = string.Join(PlayerNameSeparator, allPlayerIds.FindAll(id => id != playerId));
                 }
             }
 
