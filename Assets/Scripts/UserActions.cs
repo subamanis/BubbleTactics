@@ -16,8 +16,11 @@ public class UserActions: MonoBehaviour
     public TMP_InputField playerNameInput;
     private string currentPlayerId = "-OHX_Lic4qwYv-KYnpWj";
     private string currentRoomId = "40625";
+    private int currentRound = 1;
+    private BubbleBattleAction playerRoundAction = BubbleBattleAction.NoAction;
     public int CurrentRoundId { get; private set; }  = 1; // Store the current round ID
     public Dictionary<string, object> CurrentRoundData { get; private set; } // Store the current round's data
+
 
     public void Awake()
     {
@@ -114,14 +117,28 @@ public class UserActions: MonoBehaviour
         });
     }
 
-    public void UserClickedAction(String action)
+    public void UserClickedAction(string actionStr)
     {
+        if (Enum.TryParse(actionStr, false, out BubbleBattleAction action))
+        {
+            Console.WriteLine($"Parsed successfully: {action}");
+            this.playerRoundAction = action;
 
+        } else
+        {
+            Console.WriteLine($"Could not parse action: {action}");
+        }
     }
 
     public void UserClickedLock()
     {
+        if (this.playerRoundAction == BubbleBattleAction.NoAction)
+        {
+            print("No player action selected, while trying to set player action in DB");
+            return;
+        }
 
+        _ = this.firebaseWriteAPI.UpdatePlayerAction(this.currentRoomId, this.currentRound, this.currentPlayerId, this.playerRoundAction);
     }
 
     private void ObserveRounds(string roomId)
