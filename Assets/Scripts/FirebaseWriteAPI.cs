@@ -266,6 +266,7 @@ public class FirebaseWriteAPI : MonoBehaviour
     {
         try
         {
+            //TODO: make sure this player has entry in battle pairs!! if 3 or 5 or 7 players, he may not have opponent
             await DatabaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("battlePairs").Child(playerId).UpdateChildrenAsync(new Dictionary<string, object>
             {
                 { "action", bubbleBattleAction.ToString() }

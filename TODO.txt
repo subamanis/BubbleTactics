@@ -1,0 +1,25 @@
+FEATURES:
+
+start game by game master
+
+when scores are evaluated, lock other actions except selected, show score resolution
+
+split create join panel to write name after room join
+
+dont create room on join
+
+last player should select opponent
+
+timers
+
+streaks (and breaks) ui + calculations
+
+win lose conditions + ui
+
+leave and rejoin somehow (systeminfo unique device identifier)
+==============================================
+
+BUGS:
+when checking if every player has selected action, make sure that the player "isPlaying == true"
+
+playing not playing, shouldnt see the actions screen
