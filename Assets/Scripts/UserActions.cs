@@ -27,9 +27,9 @@ public class UserActions: MonoBehaviour
     public TMP_InputField roomIdInput;
     public TMP_InputField playerNameInput;
     private string currentPlayerId;
-    // private string currentPlayerId = "-OIeaTMkzM2bTGud64so";
+    // private string currentPlayerId = "-OIf9CE7NWCx65uSQfd0";
     private string currentRoomId;
-    // private string currentRoomId = "67433";
+    // private string currentRoomId = "60753";
     private BubbleBattleAction playerRoundAction = BubbleBattleAction.NoAction;
     private GameState gameState = GameState.Idle;
     public int CurrentRoundId { get; private set; } = 0; // Store the current round ID
