@@ -2820,6 +2820,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   roomIdInput: {fileID: 2047467812}
   playerNameInput: {fileID: 80270879}
+  createJoinPanel: {fileID: 1127242162}
+  lobbyPanel: {fileID: 57154061}
+  actionsPanel: {fileID: 694596408}
+  winLosePanel: {fileID: 1056676483}
 --- !u!1 &724883255
 GameObject:
   m_ObjectHideFlags: 0

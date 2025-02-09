@@ -24,8 +24,6 @@ public class UserActions: MonoBehaviour
     private DatabaseReference battlePairsRef;
     private FirebaseAPIFetch firebaseFetchAPI;
     private FirebaseWriteAPI firebaseWriteAPI;
-    public TMP_InputField roomIdInput;
-    public TMP_InputField playerNameInput;
     private string currentPlayerId;
     // private string currentPlayerId = "-OIf9CE7NWCx65uSQfd0";
     private string currentRoomId;
@@ -35,6 +33,12 @@ public class UserActions: MonoBehaviour
     public int CurrentRoundId { get; private set; } = 0; // Store the current round ID
     public Dictionary<string, object> CurrentRoundData { get; private set; } // Store the current round's data
 
+    public TMP_InputField roomIdInput;
+    public TMP_InputField playerNameInput;
+    public GameObject createJoinPanel; 
+    public GameObject lobbyPanel; 
+    public GameObject actionsPanel; 
+    public GameObject winLosePanel; 
 
     public void Awake()
     {
@@ -43,6 +47,7 @@ public class UserActions: MonoBehaviour
 
     public void Start()
     {
+        OpenCreateJoinRoomPanel();
         InitFirebase().ContinueWithOnMainThread((result) =>
         {
             this.gameState = GameState.JoiningRoom;
@@ -101,11 +106,32 @@ public class UserActions: MonoBehaviour
 
             // Start observing rounds for the created room
             ObserveRounds(currentRoomId);
+            OpenLobbyPanel();
         }
         catch (Exception ex)
         {
             Debug.LogError($"Failed to create or join the room: {ex.Message}");
         }
+    }
+
+    private void OpenCreateJoinRoomPanel()
+    {
+        this.lobbyPanel.SetActive(false);
+        this.actionsPanel.SetActive(false);
+        this.createJoinPanel.SetActive(true);
+    }
+
+    private void OpenLobbyPanel()
+    {
+        this.actionsPanel.SetActive(false);
+        this.createJoinPanel.SetActive(false);
+        this.lobbyPanel.SetActive(true);
+    }
+
+    private void OpenActionsPanel()
+    {
+        this.lobbyPanel.SetActive(false);
+        this.actionsPanel.SetActive(true);
     }
 
     public void UserClickedJoinRoom () {
@@ -121,6 +147,7 @@ public class UserActions: MonoBehaviour
 
                 // Start observing rounds for the joined room
                 ObserveRounds(currentRoomId);
+                OpenLobbyPanel();
             }
             else
             {
@@ -264,6 +291,7 @@ public class UserActions: MonoBehaviour
 
             if (areAllPlayersReady)
             {
+                OpenActionsPanel();
                 this.gameState = GameState.WaitingForPlayerActions;
                 Debug.Log("All players are ready.");
 
@@ -412,6 +440,7 @@ public class UserActions: MonoBehaviour
                 {
                     Debug.Log("All players have chosen an action, but the current player is neither first nor last.");
                 }
+                OpenLobbyPanel();
             }
             else
             {
