@@ -116,6 +116,16 @@ public class UserActions: MonoBehaviour
         });
     }
 
+    public void UserClickedAction(String action)
+    {
+
+    }
+
+    public void UserClickedLock()
+    {
+
+    }
+
     private void ObserveRounds(string roomId)
     {
         Debug.Log($"observer 1" + roomId);
