@@ -807,7 +807,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 150190688}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 715298456}
+        m_TargetAssemblyTypeName: UserActions, BubbleScripts
+        m_MethodName: UserClickedAction
+        m_Mode: 5
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: Merge
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &150190688
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1631,7 +1643,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 359477222}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 715298456}
+        m_TargetAssemblyTypeName: UserActions, BubbleScripts
+        m_MethodName: UserClickedAction
+        m_Mode: 5
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: Pop
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &359477222
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2526,7 +2550,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &694596409
 RectTransform:
   m_ObjectHideFlags: 0
@@ -3028,11 +3052,11 @@ RectTransform:
   m_LocalScale: {x: 0, y: 0, z: 0}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 2011112641}
   - {fileID: 1127242163}
   - {fileID: 694596409}
   - {fileID: 57154062}
   - {fileID: 1056676484}
-  - {fileID: 2011112641}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -3801,7 +3825,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1127242163
 RectTransform:
   m_ObjectHideFlags: 0
@@ -4081,7 +4105,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1254741715}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 715298456}
+        m_TargetAssemblyTypeName: UserActions, BubbleScripts
+        m_MethodName: UserClickedLock
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &1254741715
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4783,7 +4819,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1750009905}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 715298456}
+        m_TargetAssemblyTypeName: UserActions, BubbleScripts
+        m_MethodName: UserClickedAction
+        m_Mode: 5
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: Float
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &1750009905
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5375,7 +5423,7 @@ GameObject:
   - component: {fileID: 2011112643}
   - component: {fileID: 2011112642}
   m_Layer: 5
-  m_Name: Panel
+  m_Name: ScoresPanel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
