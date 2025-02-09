@@ -14,8 +14,10 @@ public class UserActions: MonoBehaviour
     private FirebaseWriteAPI firebaseWriteAPI;
     public TMP_InputField roomIdInput;
     public TMP_InputField playerNameInput;
-    private string currentPlayerId = "-OHX_Lic4qwYv-KYnpWj";
-    private string currentRoomId = "40625";
+    // private string currentPlayerId;
+    private string currentPlayerId = "-OIeaTMkzM2bTGud64so";
+    // private string currentRoomId;
+    private string currentRoomId = "67433";
     public int CurrentRoundId { get; private set; }  = 1; // Store the current round ID
     public Dictionary<string, object> CurrentRoundData { get; private set; } // Store the current round's data
 
@@ -31,7 +33,7 @@ public class UserActions: MonoBehaviour
             Debug.Log("Init Firebase with status: " + result.Result);
             ObserveRounds(currentRoomId);
             Debug.Log("lianos");
-            ObserveIsReady(currentRoomId, CurrentRoundId.ToString());
+            // ObserveIsReady(currentRoomId, CurrentRoundId.ToString());
         });
         
     }
