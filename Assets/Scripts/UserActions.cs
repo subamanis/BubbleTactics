@@ -135,10 +135,11 @@ public class UserActions: MonoBehaviour
     }
 
     public void UserClickedJoinRoom () {
+        currentRoomId = roomIdInput.text;
+
         this.firebaseWriteAPI.JoinRoomAsync(roomIdInput.text, playerNameInput.text).ContinueWith(task => {
             if (task.IsCompletedSuccessfully)
             {
-                currentRoomId = roomIdInput.text;
                 currentPlayerId = task.Result;
 
                 this.gameState = GameState.WaitingForPlayersReady;
