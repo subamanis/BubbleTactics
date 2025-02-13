@@ -31,11 +31,14 @@ namespace Tests
             Debug.Log("CreateRoomAndJoinRoom Room Created with ID: " + roomCreationResult);
         
             // Join in
-            var joinRoomResultFirst = await firebaseWriteAPI.JoinRoomAsync(roomCreationResult, playerOneName, true);
+            var joinRoomResultFirst = "111";
+            await firebaseWriteAPI.JoinRoomAsync(roomCreationResult, joinRoomResultFirst, playerOneName, true);
             Debug.Log("CreateRoomAndJoinRoom Room Joined for user ID: " + joinRoomResultFirst);
-            var joinRoomResultSecond = await firebaseWriteAPI.JoinRoomAsync(roomCreationResult, playerTwoName);
+            var joinRoomResultSecond = "222";
+            await firebaseWriteAPI.JoinRoomAsync(roomCreationResult, joinRoomResultSecond, playerTwoName);
             Debug.Log("CreateRoomAndJoinRoom Room Joined for user ID: " + joinRoomResultSecond);
-            var joinRoomResultThird = await firebaseWriteAPI.JoinRoomAsync(roomCreationResult, playerThreeName);
+            var joinRoomResultThird = "333";
+            await firebaseWriteAPI.JoinRoomAsync(roomCreationResult, joinRoomResultThird, playerThreeName);
             Debug.Log("CreateRoomAndJoinRoom Room Joined for user ID: " + joinRoomResultThird);
             
             // Check ready states
@@ -56,9 +59,9 @@ namespace Tests
             Assert.IsFalse(statusesBeforeReady[2].Ready);
 
             // Players ready-up
-            await firebaseWriteAPI.UpdateIsReadyForPlayerAsync(roomCreationResult,1,joinRoomResultFirst,true);
-            await firebaseWriteAPI.UpdateIsReadyForPlayerAsync(roomCreationResult,1,joinRoomResultSecond,true);
-            await firebaseWriteAPI.UpdateIsReadyForPlayerAsync(roomCreationResult,1,joinRoomResultThird,true);
+            await firebaseWriteAPI.UpdatePlayerIsReadyForRoundAsync(roomCreationResult,1,joinRoomResultFirst,true);
+            await firebaseWriteAPI.UpdatePlayerIsReadyForRoundAsync(roomCreationResult,1,joinRoomResultSecond,true);
+            await firebaseWriteAPI.UpdatePlayerIsReadyForRoundAsync(roomCreationResult,1,joinRoomResultThird,true);
         
             // Check ready states
             var statusesAfterReady =  await firebaseAPIFetch.GetAllIsReadyAsync(roomCreationResult,1);

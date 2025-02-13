@@ -71,6 +71,10 @@ public static class BabbleBattleScoreCalculator
         else if (myAction == BubbleBattleAction.Float && opponentAction == BubbleBattleAction.Float)
         {
             return -1;
+        } 
+        else if (myAction == BubbleBattleAction.NoAction) 
+        {
+            return -2;
         }
         
         throw new System.NotImplementedException("Score calculation not implemented for action: " + myAction + " and opponent action: " + opponentAction + "");

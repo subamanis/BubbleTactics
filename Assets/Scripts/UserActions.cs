@@ -1,45 +1,129 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Firebase;
 using Firebase.Database;
 using Firebase.Extensions;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 public class UserActions: MonoBehaviour
 {
+    /*------------------------------------------------------------------------------------------
+     *                                     GAME FLOW OVERVIEW
+     *------------------------------------------------------------------------------------------
+     * 1. Room Creation:
+     *    - The Owner (first player) creates a room.
+     *    - Other players can join the room.
+     *  
+     * 2. "Lobby" Screen:
+     *    - Non-owner players choose a name and must press "Ready".
+     *    - Owner sees the number of joined players and the number of "Ready" players (y / x players ready).
+     *        → If y == x, Owner can press "Start Game"
+     *    - The owner also enters their name during this phase.
+     *  
+     *   ==========> Game Loop <==========
+     * 3. Group Screen:
+     *    - All players are redirected to the "Group" screen.
+     *    - Displays player names, scores, and streaks.
+     *    - Matchmaking takes place here.
+     *  
+     * 4. Action Selection:
+     *    - Players are transported to the "Actions" screen.
+     *    - They choose and lock in an action.
+     *  
+     * 5. Resolution Phase:
+     *    - Once all "playing" players have locked their actions:
+     *        → They are transported to the "Resolution" screen.
+     *        → Battle animations play.
+     *        → Score calculations are performed.
+     *  
+     * 6. Looping the Game:
+     *    - Players return to the "Group" screen.
+     *    - The process repeats from matchmaking onward until the game concludes.
+     *------------------------------------------------------------------------------------------*/
+
     enum GameState
     {
         Idle,
         JoiningRoom,
-        WaitingForPlayersReady,
+        WaitingForPlayersGameReady,
+        WaitingForRoundStart,
         WaitingForPlayerActions,
         ResolvingActions,
+        Over
     }
 
+    class Player 
+    {
+       public string Id;
+       public string Name;
+       public int JoinTime;
+       public bool IsOwner;
+
+        public Player(string id, string name, int joinTime, bool isOwner)
+        {
+            Id = id;
+            Name = name;
+            JoinTime = joinTime;
+            IsOwner = isOwner;
+        }
+
+        public override string ToString()
+        {
+            return $"Player(Id: {Id}, Name: {Name}, JoinTime: {JoinTime}, IsOwner: {IsOwner})";
+        }
+    }
+
+    private const int TIME_UNTIL_FIRST_ROUND_START_SECS = 5;
+    private const int TIME_UNTIL_NEXT_ROUND_START_SECS = 15;
+    private const int ACTIONS_TIME_LIMIT = 20;
+
     private DatabaseReference databaseReference;
-    private DatabaseReference roundsRef;
+    private DatabaseReference readyForGameRef;
+    private DatabaseReference startGameRef;
     private DatabaseReference isRoundReadyRef;
     private DatabaseReference battlePairsRef;
     private FirebaseAPIFetch firebaseFetchAPI;
     private FirebaseWriteAPI firebaseWriteAPI;
-    private BubbleBattleAction playerRoundAction = BubbleBattleAction.NoAction;
+    private UniqueIDManager idManager;
+    private CountdownTimer countdownTimer;
+    private ErrorTextDisplay errorTextManager;
     private GameState gameState = GameState.Idle;
+    private BubbleBattleAction playerRoundAction = BubbleBattleAction.NoAction;
+    private Dictionary<string, Player> playerDict = new Dictionary<string, Player>();
     private string currentPlayerId;
     private string currentRoomId;
+    private bool hasLockedAction;
     
-    public int CurrentRoundId { get; private set; } = 0;
+    public int CurrentRoundId { get; private set; } = 1;
+    public Button startGameBtn;
+    public Button readyBtn;
+    public Button lockActionBtn;
+    public Button[] actionButtons;
     public TMP_InputField roomIdInput;
     public TMP_InputField playerNameInput;
+    public TextMeshProUGUI playerReadyCountText;
+    public TextMeshProUGUI[] PScores;
+    public Toggle firstPlayerToggle;
+    // When adding new Panels, make sure to register their deactivation in "CloseOtherPanels"
     public GameObject createJoinPanel; 
     public GameObject lobbyPanel; 
+    public GameObject groupPanel; 
     public GameObject actionsPanel; 
     public GameObject winLosePanel; 
 
     public void Awake()
     {
         FirebaseDatabase.DefaultInstance.SetPersistenceEnabled(false);
+
+        idManager = FindFirstObjectByType<UniqueIDManager>();
+        countdownTimer = FindFirstObjectByType<CountdownTimer>();
+        errorTextManager = FindFirstObjectByType<ErrorTextDisplay>();
+        currentPlayerId = idManager.GetUniqueDeviceID();
     }
 
     public void Start()
@@ -65,10 +149,12 @@ public class UserActions: MonoBehaviour
         HandleRoomJoinAsync();
     }
 
-    public void UserClickedReady () {
-        firebaseWriteAPI.UpdateIsReadyForPlayerAsync(currentRoomId, CurrentRoundId, currentPlayerId, true).ContinueWithOnMainThread(task => {
-            ObserveIsReady(currentRoomId, CurrentRoundId.ToString());
-        });
+    public void UserClickedReadyForGame () {
+        _ = firebaseWriteAPI.UpdatePlayerIsReadyForGameAsync(currentRoomId, currentPlayerId, true);
+    }
+
+    public void UserClickedStartGame () {
+        _ = firebaseWriteAPI.UpdateHasGameStarted(currentRoomId);
     }
 
     public void UserClickedAction(string actionStr)
@@ -76,6 +162,9 @@ public class UserActions: MonoBehaviour
         if (Enum.TryParse(actionStr, false, out BubbleBattleAction action))
         {
             playerRoundAction = action;
+            DisableAllActionButtonOutlines();
+            GameObject clickedButton = EventSystem.current.currentSelectedGameObject;
+            clickedButton.GetComponent<Outline>().enabled = true;
         } 
         else
         {
@@ -92,6 +181,8 @@ public class UserActions: MonoBehaviour
             return;
         }
 
+        hasLockedAction = true;
+        MakeActionAndLockButtonsNotInteractible();
         _ = firebaseWriteAPI.UpdatePlayerAction(currentRoomId, CurrentRoundId, currentPlayerId, playerRoundAction);
     }
 
@@ -124,23 +215,24 @@ public class UserActions: MonoBehaviour
     {
         try
         {
-            // Attempt to create a room asynchronously
             var createRoomResult = await firebaseWriteAPI.CreateRoomAsync();
             currentRoomId = createRoomResult;
 
             Debug.Log($"Created room with ID: {currentRoomId}");
 
-            // Attempt to join the created room asynchronously
-            var joinRoomResult = await firebaseWriteAPI.JoinRoomAsync(currentRoomId, playerNameInput.text, true);
-            currentPlayerId = joinRoomResult;
+            var shouldJoinAsOwner = true;
+            if (Application.isEditor) {
+                shouldJoinAsOwner = false;
+            }
+            await firebaseWriteAPI.JoinRoomAsync(currentRoomId, currentPlayerId, playerNameInput.text, shouldJoinAsOwner);
 
-            gameState = GameState.WaitingForPlayersReady;
+            gameState = GameState.WaitingForPlayersGameReady;
 
             Debug.Log($"Joined room with ID: {currentRoomId}, Player ID: {currentPlayerId}");
 
-            // Start observing rounds for the created room
-            ObserveRounds(currentRoomId);
-            OpenLobbyPanel();
+            CreateIsReadyForGameObserver(currentRoomId);
+            CreateHasGameStartedObserver(currentRoomId);
+            OpenLobbyPanel(shouldJoinAsOwner);
         }
         catch (Exception ex)
         {
@@ -153,98 +245,184 @@ public class UserActions: MonoBehaviour
         currentRoomId = roomIdInput.text;
         try
         {
-            var joinRoomResult = await firebaseWriteAPI.JoinRoomAsync(currentRoomId, playerNameInput.text, true);
-            currentPlayerId = joinRoomResult;
+            if (Application.isEditor)
+            {
+                currentPlayerId = Guid.NewGuid().ToString();
+            }
 
-            gameState = GameState.WaitingForPlayersReady;
+            var shouldJoinAsOwner = false;
+            if (Application.isEditor) {
+                shouldJoinAsOwner = (firstPlayerToggle != null) && firstPlayerToggle.isOn;
+            }
+            bool result = await firebaseWriteAPI.JoinRoomAsync(currentRoomId, currentPlayerId, playerNameInput.text, shouldJoinAsOwner);
+            if (!result)
+            {
+                errorTextManager.ShowError("Could not join room. Make sure the room id is valid.");
+                return;
+            }
+
+            gameState = GameState.WaitingForPlayersGameReady;
 
             Debug.Log($"Room joined with ID: {currentRoomId}, Player ID: {currentPlayerId}");
 
-            // Start observing rounds for the created room
-            ObserveRounds(currentRoomId);
-            OpenLobbyPanel();
+            CreateIsReadyForGameObserver(currentRoomId);
+            CreateHasGameStartedObserver(currentRoomId);
+            OpenLobbyPanel(shouldJoinAsOwner);
         }
         catch (Exception ex)
         {
-            Debug.LogError($"Failed tojoin the room: {ex.Message}");
+            Debug.LogError($"Failed to join the room: {ex.Message}");
         }
     }
 
-    private void ObserveRounds(string roomId)
+    private void CreateIsReadyForGameObserver(string roomId)
     {
-        Debug.Log($"creating rounds observer");
+        Debug.Log($"creating is ready for game observer");
 
-        if (roundsRef != null)
+        if (readyForGameRef != null)
         {
-            roundsRef.ValueChanged -= RoundsObserver;
+            readyForGameRef.ValueChanged -= HandleIsReadyForGameChangedObserver;
         }
 
-        roundsRef = databaseReference.Child("rooms").Child(roomId).Child("rounds");
+        readyForGameRef = databaseReference.Child("rooms").Child(roomId).Child("isReadyForGame");
 
-        roundsRef.ValueChanged += RoundsObserver;
+        readyForGameRef.ValueChanged += HandleIsReadyForGameChangedObserver;
     }
 
-    private void RoundsObserver(object _, ValueChangedEventArgs args)
+    private void HandleIsReadyForGameChangedObserver(object _, ValueChangedEventArgs args)
     {
-        if (gameState is not GameState.WaitingForPlayersReady) {
-            return;
+        print("Calling isReadyForGameChanged observer");
+        if (args.Snapshot.Children.Count() == 0) {
+            Debug.LogWarning($"No children found under rooms/{currentRoomId}/isReadyForGame");
         }
-
-        Debug.Log($"calling rounds observer");
-        if (args.DatabaseError != null)
+        int readyPlayers = 0;
+        int totalPlayers = 0;
+        foreach (var isReadySnapshot in args.Snapshot.Children)
         {
-            Debug.LogError($"Failed to observe rounds: {args.DatabaseError.Message}");
-            return;
-        }
-
-        if (args.Snapshot.Exists)
-        {
-            // Find the latest round (highest round ID)
-            int latestRoundId = -1;
-            Dictionary<string, object> latestRoundData = null;
-
-            foreach (var roundSnapshot in args.Snapshot.Children)
+            totalPlayers += 1;
+            bool isPlayerReady = bool.Parse(isReadySnapshot.Value.ToString());
+            if (isPlayerReady)
             {
-                int roundId = int.Parse(roundSnapshot.Key);
-                if (roundId > latestRoundId)
-                {
-                    latestRoundId = roundId;
-                    latestRoundData = new Dictionary<string, object>();
+                readyPlayers += 1;
+            }
+        }
 
-                    foreach (var child in roundSnapshot.Children)
-                    {
-                        latestRoundData[child.Key] = child.Value;
-                    }
-                }
+        playerReadyCountText.text = readyPlayers.ToString() + "/" + totalPlayers.ToString() + " players are ready";
+
+        if (readyPlayers == totalPlayers) {
+            startGameBtn.interactable = true;
+            print("All players ready to start the game");
+        } else {
+            startGameBtn.interactable = false;
+            print("NOT all players ready to start the game");
+        }
+    }
+
+    // TODO this observer is useless for first player
+    private void CreateHasGameStartedObserver(string roomId)
+    {
+        Debug.Log($"creating has game started observer");
+
+        if (startGameRef != null)
+        {
+            startGameRef.ValueChanged -= HandleHasGameStartedChanged;
+        }
+
+        // First-player updates "hasGameStarted" once, by pressing "Start Game"
+        startGameRef = databaseReference.Child("rooms").Child(roomId).Child("hasGameStarted");
+
+        startGameRef.ValueChanged += HandleHasGameStartedChanged;
+    }
+
+    private async void HandleHasGameStartedChanged(object _, ValueChangedEventArgs args)
+    {
+        print("hasGameStarted observer early call, gamestate: "+gameState);
+        if (gameState is not GameState.WaitingForPlayersGameReady)
+        {
+            return;
+        }
+
+        Debug.Log($"calling has game started observer");
+
+        if (args.Snapshot.Exists && (bool)args.Snapshot.Value)
+        {
+            // We don't need the observer any more
+            if (startGameRef != null)
+            {
+                startGameRef.ValueChanged -= HandleHasGameStartedChanged;
+                startGameRef = null;
             }
 
-            CurrentRoundId = latestRoundId;
-            Debug.Log($"Current Round ID: {CurrentRoundId}");
+            Debug.Log("The game has started");
 
-            ObserveIsReady(currentRoomId, CurrentRoundId.ToString());
-        }
-        else
-        {
-            Debug.LogWarning("No rounds found for this room.");
+            OpenGroupPanel();
+            CreateIsReadyForRoundObserver(currentRoomId, CurrentRoundId.ToString());
+            await PopulatePlayerDict();
+            gameState = GameState.WaitingForRoundStart;
+            countdownTimer.StartCountdown(TIME_UNTIL_FIRST_ROUND_START_SECS);
+            countdownTimer.OnCountdownFinished += HandleWaitingForRoundStartPhaseEnded;
+
+            print("count of dict keys: "+ playerDict.Keys.Count);
+            if (playerDict[currentPlayerId].IsOwner)
+            {
+                try
+                {
+                    await firebaseWriteAPI.CalculateBattlePairs(currentRoomId, CurrentRoundId);
+                    Debug.Log("Battle pairs calculated successfully.");
+
+                    CreatePlayerActionsObserver(currentRoomId);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"Failed to calculate battle pairs: {ex.Message}");
+                }
+            }
         }
     }
 
-    private void ObserveIsReady(string roomId, string roundId)
+    private async void HandleWaitingForRoundStartPhaseEnded()
+    {
+        if (gameState is not GameState.WaitingForRoundStart) {
+            return;
+        }
+
+        OpenActionsPanel();
+        gameState = GameState.WaitingForPlayerActions;
+        Debug.Log("Next round has started.");
+        countdownTimer.StartCountdown(ACTIONS_TIME_LIMIT);
+        countdownTimer.OnCountdownFinished += HandleActionsCountdownFinished;
+        if (playerDict[currentPlayerId].IsOwner)
+        {
+            try
+            {
+                await firebaseWriteAPI.CalculateBattlePairs(currentRoomId, CurrentRoundId);
+                Debug.Log("Battle pairs calculated successfully.");
+
+                CreatePlayerActionsObserver(currentRoomId);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"Failed to calculate battle pairs: {ex.Message}");
+            }
+        }
+    }
+
+    private void CreateIsReadyForRoundObserver(string roomId, string roundId)
     {
         if (isRoundReadyRef != null)
         {
-            isRoundReadyRef.ValueChanged -= IsReadyObserver;
+            isRoundReadyRef.ValueChanged -= HandleIsReadyForRoundChanged;
         }
 
         Debug.Log($"creating isReady observer");
         isRoundReadyRef = databaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId).Child("isReady");
 
-        isRoundReadyRef.ValueChanged += IsReadyObserver;
+        isRoundReadyRef.ValueChanged += HandleIsReadyForRoundChanged;
     }
     
-    private async void IsReadyObserver(object _, ValueChangedEventArgs args)
+    private void HandleIsReadyForRoundChanged(object _, ValueChangedEventArgs args)
     {
-        if (gameState is not GameState.WaitingForPlayersReady) {
+        if (gameState is not GameState.WaitingForRoundStart) {
             return;
         }
 
@@ -271,32 +449,8 @@ public class UserActions: MonoBehaviour
 
             if (areAllPlayersReady)
             {
-                OpenActionsPanel();
-                gameState = GameState.WaitingForPlayerActions;
-                Debug.Log("All players are ready.");
-
-                bool isFirstPlayer = await IsCurrentPlayerFirstAsync(currentRoomId, currentPlayerId);
-
-                if (isFirstPlayer)
-                {
-                    Debug.Log("Handling game logic because the current player is in last place or joined first.");
-
-                    try
-                    {
-                        await firebaseWriteAPI.CalculateBattlePairs(currentRoomId, CurrentRoundId);
-                        Debug.Log("Battle pairs calculated successfully.");
-
-                        ObservePlayerActions(currentRoomId);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.LogError($"Failed to calculate battle pairs: {ex.Message}");
-                    }
-                }
-                else
-                {
-                    Debug.Log("Current player is neither in last place nor the first to join.");
-                }
+                Debug.Log("All players are ready: ");
+                HandleWaitingForRoundStartPhaseEnded();
             }
             else
             {
@@ -309,16 +463,15 @@ public class UserActions: MonoBehaviour
         }
     }
 
-    private void ObservePlayerActions(string roomId)
+    private void CreatePlayerActionsObserver(string roomId)
     {
         if (battlePairsRef != null)
         {
-            battlePairsRef.ValueChanged -= PlayerActionsObserver;
+            battlePairsRef.ValueChanged -= HandlePlayerActionsChanged;
         }
 
         Debug.Log($"creating observer player actions {roomId} - {CurrentRoundId}");
 
-        // battlePairsRef = GetDbReference($"rooms/{roomId}/rounds/{CurrentRoundId}/battlePairs");
         battlePairsRef = databaseReference
             .Child("rooms")
             .Child(roomId)
@@ -326,10 +479,10 @@ public class UserActions: MonoBehaviour
             .Child(CurrentRoundId.ToString())
             .Child("battlePairs");
 
-        battlePairsRef.ValueChanged += PlayerActionsObserver;
+        battlePairsRef.ValueChanged += HandlePlayerActionsChanged;
     }
 
-    private async void PlayerActionsObserver(object _, ValueChangedEventArgs args)
+    private async void HandlePlayerActionsChanged(object _, ValueChangedEventArgs args)
     {
         if (gameState is not GameState.WaitingForPlayerActions) {
             return;
@@ -346,24 +499,10 @@ public class UserActions: MonoBehaviour
         if (args.Snapshot.Exists)
         {
             bool allPlayersHaveAction = true;
-            List<string> allPlayers = new List<string>();
 
-            // Fetch all players from the room
-            DataSnapshot playersSnapshot = await databaseReference
-                .Child("rooms")
-                .Child(currentRoomId)
-                .Child("players")
-                .GetValueAsync();
-
-            if (!playersSnapshot.Exists)
-            {
-                Debug.LogError("No players found in the room.");
+            if ((int)args.Snapshot.ChildrenCount != playerDict.Count) {
+                Debug.Log("Not all players have chosen an action yet.");
                 return;
-            }
-
-            foreach (var playerSnapshot in playersSnapshot.Children)
-            {
-                allPlayers.Add(playerSnapshot.Key);
             }
 
             // Check actions for all players inside battlePairs
@@ -371,7 +510,6 @@ public class UserActions: MonoBehaviour
             {
                 string playerId = playerSnapshot.Key;
 
-                // Ensure that action exists inside the battlePairs structure
                 if (!playerSnapshot.Child("action").Exists || string.IsNullOrEmpty(playerSnapshot.Child("action").Value.ToString()))
                 {
                     allPlayersHaveAction = false;
@@ -382,20 +520,14 @@ public class UserActions: MonoBehaviour
             if (allPlayersHaveAction)
             {
                 gameState = GameState.ResolvingActions;
-
                 Debug.Log("All players have selected an action.");
 
-                bool isFirstPlayer = await IsCurrentPlayerFirstAsync(currentRoomId, currentPlayerId);
-
-                OpenLobbyPanel();
-                if (isFirstPlayer)
+                if (playerDict[currentPlayerId].IsOwner)
                 {
-                    Debug.Log("Current player is in last place or first to join, calculating round score diffs...");
+                    Debug.Log("Current player is first to join, calculating round score diffs...");
 
-                    // Run CalculateAndSetPlayerRoundScoreDiff for every player
                     List<Task> scoreTasks = new List<Task>();
-
-                    foreach (string playerId in allPlayers)
+                    foreach (string playerId in playerDict.Keys)
                     {
                         scoreTasks.Add(firebaseWriteAPI.CalculateAndSetPlayerRoundScoreDiff(currentRoomId, CurrentRoundId, playerId));
                     }
@@ -405,7 +537,7 @@ public class UserActions: MonoBehaviour
                         await Task.WhenAll(scoreTasks);
                         Debug.Log("Successfully calculated and set round score diffs for all players.");
 
-                        gameState = GameState.WaitingForPlayersReady;
+                        gameState = GameState.WaitingForRoundStart;
 
                         // Create the next round after updating scores
                         await firebaseWriteAPI.CreateNewRoundAsync(currentRoomId);
@@ -420,6 +552,10 @@ public class UserActions: MonoBehaviour
                 {
                     Debug.Log("All players have chosen an action, but the current player is neither first nor last.");
                 }
+                UpdateStateBetweenRounds();
+                OpenGroupPanel();
+                countdownTimer.StartCountdown(TIME_UNTIL_NEXT_ROUND_START_SECS);
+                countdownTimer.OnCountdownFinished += HandleWaitingForRoundStartPhaseEnded;
             }
             else
             {
@@ -429,6 +565,15 @@ public class UserActions: MonoBehaviour
         else
         {
             Debug.LogWarning("No battlePairs data found for this round.");
+        }
+    }
+
+    private void HandleActionsCountdownFinished()
+    {
+        print("Actions phase countdown finished and user hasn't selected an action, so setting action to NoAction");
+        if (!hasLockedAction) {
+            MakeActionAndLockButtonsNotInteractible();
+            _ = firebaseWriteAPI.UpdatePlayerAction(currentRoomId, CurrentRoundId, currentPlayerId, BubbleBattleAction.NoAction);
         }
     }
 
@@ -491,79 +636,128 @@ public class UserActions: MonoBehaviour
         }
     }
 
-
-    private async Task<bool> IsCurrentPlayerFirstAsync(string roomId, string currentPlayerId)
+    private void UpdateStateBetweenRounds()
     {
-        try
-        {
-            // Fetch players asynchronously
-            DataSnapshot snapshot = await databaseReference
+        hasLockedAction = false;
+        CurrentRoundId += 1;
+    }
+
+    private async Task PopulatePlayerDict()
+    {
+        DataSnapshot playersSnapshot = await databaseReference
                 .Child("rooms")
-                .Child(roomId)
+                .Child(currentRoomId)
                 .Child("players")
                 .GetValueAsync();
 
-            if (!snapshot.Exists)
-            {
-                Debug.LogError($"Players for room {roomId} do not exist.");
-                return false; // No players exist
-            }
+        var values = (Dictionary<string, object>)playersSnapshot.Value;
 
-            // Find the player with the earliest joinTime
-            long earliestJoinTime = long.MaxValue;
-            string firstPlayerId = null;
-
-            foreach (var playerSnapshot in snapshot.Children)
-            {
-                string playerId = playerSnapshot.Key;
-
-                // Parse the joinTime value
-                if (playerSnapshot.Child("joinTime").Exists)
-                {
-                    long joinTime = long.Parse(playerSnapshot.Child("joinTime").Value.ToString());
-
-                    if (joinTime < earliestJoinTime)
-                    {
-                        earliestJoinTime = joinTime;
-                        firstPlayerId = playerId;
-                    }
-                }
-            }
-
-            // Check if the current player is the one who joined first
-            if (firstPlayerId == currentPlayerId)
-            {
-                Debug.Log($"Current player ({currentPlayerId}) is the first to join the room.");
-                return true;
-            }
-
-            Debug.Log($"Current player ({currentPlayerId}) is not the first to join the room.");
-            return false;
-        }
-        catch (Exception ex)
+        var firstPlayerId = "";
+        var earliestJoinTime = int.MaxValue;
+        print("earliestJoinTime init: "+ earliestJoinTime);
+        print("random unix timestamp < earliestJoinTime: "+(1739462555 < earliestJoinTime));
+        foreach (KeyValuePair<string, object> entry in values)
         {
-            Debug.LogError($"Error checking if the current player is the first to join: {ex.Message}");
-            return false;
+            var entryValues = (Dictionary<string, object>)entry.Value;
+            var joinTime = Convert.ToInt32((long)entryValues["joinTime"]);
+            if (joinTime < earliestJoinTime) {
+                firstPlayerId = entry.Key;
+                earliestJoinTime = joinTime;
+            }
+            print("dict key: "+ entry.Key);
+            playerDict.Add(entry.Key, new Player(entry.Key, (string)entryValues["name"], joinTime, false));
         }
+
+        print($"first player id: {firstPlayerId}");
+        var firstPlayer = playerDict[firstPlayerId];
+        firstPlayer.IsOwner = true;
+        print("current player after dict init: "+playerDict[currentPlayerId]);
+    }
+
+    private void DisableAllActionButtonOutlines()
+    {
+        foreach (var btn in actionButtons)
+        {
+            if (!btn.TryGetComponent<Outline>(out var outline))
+            {
+                Debug.LogWarning("No Outline component found for action button");
+                continue;
+            }
+            outline.enabled = false;
+        }
+    }
+
+    private void MakeActionAndLockButtonsNotInteractible()
+    {
+        foreach (var btn in actionButtons)
+        {
+            btn.interactable = false;
+        }
+        lockActionBtn.interactable = false;
     }
 
     private void OpenCreateJoinRoomPanel()
     {
-        lobbyPanel.SetActive(false);
-        actionsPanel.SetActive(false);
+        CloseOtherPanels(createJoinPanel);
         createJoinPanel.SetActive(true);
+
+        if (!Application.isEditor) {
+            firstPlayerToggle.gameObject.SetActive(false);
+        }
     }
 
-    private void OpenLobbyPanel()
+    private void OpenLobbyPanel(bool isFirstPlayer)
     {
-        actionsPanel.SetActive(false);
-        createJoinPanel.SetActive(false);
+        CloseOtherPanels(lobbyPanel);
         lobbyPanel.SetActive(true);
+
+        readyBtn.gameObject.SetActive(!isFirstPlayer);
+        startGameBtn.gameObject.SetActive(isFirstPlayer);
     }
 
     private void OpenActionsPanel()
     {
-        lobbyPanel.SetActive(false);
+        CloseOtherPanels(actionsPanel);
         actionsPanel.SetActive(true);
+    }
+
+    private void OpenGroupPanel()
+    {
+        CloseOtherPanels(groupPanel);
+        groupPanel.SetActive(true);
+    }
+
+    private void OpenWinLosePanel()
+    {
+        CloseOtherPanels(winLosePanel);
+        winLosePanel.SetActive(true);
+    }
+
+    private void CloseOtherPanels(GameObject openPanel)
+    {
+        if (openPanel != createJoinPanel)
+        {
+            createJoinPanel.SetActive(false);
+        }
+
+        if (openPanel != lobbyPanel)
+        {
+            lobbyPanel.SetActive(false);
+        }
+
+        if (openPanel != groupPanel)
+        {
+            groupPanel.SetActive(false);
+        }
+
+        if (openPanel != actionsPanel)
+        {
+            actionsPanel.SetActive(false);
+        }
+
+        if (openPanel != winLosePanel)
+        {
+            winLosePanel.SetActive(false);
+        }
     }
 }

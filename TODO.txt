@@ -1,25 +1,33 @@
 FEATURES:
 
-start game by game master
+DONE -- start game by game master
 
-when scores are evaluated, lock other actions except selected, show score resolution
+DONE -- when scores are evaluated, lock other actions except selected
+
+show score resolution after evaluating
 
 split create join panel to write name after room join
 
-dont create room on join
+DONE -- dont create room on join
 
 last player should select opponent
 
-timers
+DONE -- timers
 
 streaks (and breaks) ui + calculations
 
 win lose conditions + ui
 
-leave and rejoin somehow (systeminfo unique device identifier)
+leave and rejoin functionality
+DONE -- custom unique device identifier (doesn't store actual device info, that may be troublesome due to GDPR)
+
 ==============================================
 
 BUGS:
+after first round, unlock the action buttons
+
+figure out why the fuck doesn't the timer in the action screen work
+
 when checking if every player has selected action, make sure that the player "isPlaying == true"
 
-playing not playing, shouldnt see the actions screen
+player not playing in current round shouldnt see the actions screen

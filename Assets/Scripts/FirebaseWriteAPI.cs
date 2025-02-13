@@ -70,37 +70,46 @@ public class FirebaseWriteAPI : MonoBehaviour
         }
     }
 
-    public async Task<string> JoinRoomAsync(string roomId, string playerName, bool owner = false)
+    public async Task<bool> JoinRoomAsync(string roomId, string playerId, string playerName, bool isOwner = false)
     {
         try
         {
-            // Generate a unique playerId for the new player
-            var playerId = DatabaseReference.Child("rooms").Child(roomId).Child("players").Push().Key;
+            var roomSnapshot = await DatabaseReference.Child("rooms").Child(roomId).GetValueAsync();
+            if (!roomSnapshot.Exists) {
+                return false;
+            } 
 
-            // Create the player data
+            var timestamp = GetUnixTimestamp();
+            if (isOwner) {
+                timestamp -= 10000;
+            }
+
             var playerData = new Dictionary<string, object>
             {
                 { "name", playerName },
-                { "joinTime", GetUnixTimestamp() }, // Unix timestamp for joinTime
-                { "owner", owner }
+                { "joinTime", timestamp}
             };
 
-            // Add the player to the players node
+            // Generate a unique playerId for the new player
             await DatabaseReference.Child("rooms").Child(roomId).Child("players").Child(playerId).SetValueAsync(playerData);
 
             Debug.Log($"Player {playerName} (ID: {playerId}) joined room {roomId}.");
 
-            // Update the "isReady" field in the first round (roundId = 0)
+            // Owner / first-player is always ready for game. Not writing himself in the db helps with counting how many players are actually ready
+            if (!isOwner) {
+                await DatabaseReference.Child("rooms").Child(roomId).Child("isReadyForGame").Child(playerId).SetValueAsync(false);
+            }
+
+            // Update the "isReady" field in the first round
             // TODO this is VERY wrong here. We're arbitrary writing on the first round "isReady". We might be joining later on in the game
             await DatabaseReference.Child("rooms").Child(roomId).Child("rounds").Child("1").Child("isReady").Child(playerId).SetValueAsync(false);
 
-            Debug.Log($"Player {playerId} added to isReady for round 0 in room {roomId}.");
-            return playerId; // Return the generated playerId
+            return true; // Return the generated playerId
         }
         catch (System.Exception ex)
         {
             Debug.LogError($"Failed to join room {roomId} for player {playerName}: {ex.Message}");
-            return null; // Return null if the operation fails
+            return false; // Return null if the operation fails
         }
     }
 
@@ -147,6 +156,7 @@ public class FirebaseWriteAPI : MonoBehaviour
             // Fetch available opponents from the last round if it exists
             if (lastRoundId != -1)
             {
+                print($"not first round, lastRoundId: {lastRoundId}");
                 DataSnapshot lastRoundSnapshot = await roundsRef.Child(lastRoundId.ToString()).Child("availableOpponents").GetValueAsync();
                 if (lastRoundSnapshot.Exists)
                 {
@@ -163,6 +173,7 @@ public class FirebaseWriteAPI : MonoBehaviour
                 }
                 else
                 {
+                    print($"IT IS first round");
                     // If no availableOpponents exist in the last round, initialize for all players
                     foreach (var playerId in allPlayerIds)
                     {
@@ -213,7 +224,33 @@ public class FirebaseWriteAPI : MonoBehaviour
         }
     }
 
-    public async Task UpdateIsReadyForPlayerAsync(string roomId, int roundId, string playerId, bool isReady)
+    public async Task UpdateHasGameStarted(string roomId)
+    {
+        try
+        {
+            await DatabaseReference.Child("rooms").Child(roomId).Child("hasGameStarted").SetValueAsync(true);
+            Debug.Log($"Updated hasGameStarted to true for room {roomId}!");
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"Failed to update hasGameStarted in room {roomId}: {ex.Message}");
+        }
+    }
+
+    public async Task UpdatePlayerIsReadyForGameAsync(string roomId, string playerId, bool isReady)
+    {
+        try
+        {
+            await DatabaseReference.Child("rooms").Child(roomId).Child("isReadyForGame").Child(playerId).SetValueAsync(isReady);
+            Debug.Log($"Updated isReady for player {playerId} in room {roomId}.");
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"Failed to update isReadyForGame for player {playerId} in room {roomId}: {ex.Message}");
+        }
+    }
+
+    public async Task UpdatePlayerIsReadyForRoundAsync(string roomId, int roundId, string playerId, bool isReady)
     {
         try
         {
@@ -272,8 +309,9 @@ public class FirebaseWriteAPI : MonoBehaviour
                 { "action", bubbleBattleAction.ToString() }
             });
 
+            //TODO: do we need this if?
             // If this player played against an opponent, remove that player from the available opponents
-            if (bubbleBattleAction is BubbleBattleAction.Float or BubbleBattleAction.Merge or BubbleBattleAction.Pop)
+            if (bubbleBattleAction is BubbleBattleAction.Float or BubbleBattleAction.Merge or BubbleBattleAction.Pop or BubbleBattleAction.NoAction)
             {
                 // Get the opponent id 
                 DataSnapshot opponentSnapshot = await DatabaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("battlePairs").Child(playerId).GetValueAsync();
@@ -291,7 +329,7 @@ public class FirebaseWriteAPI : MonoBehaviour
         }
     }
 
-    public async Task CalculateAndSetPlayerRoundScoreDiff(string roomId, int roundId, string playerId)
+    public async Task<int> CalculateAndSetPlayerRoundScoreDiff(string roomId, int roundId, string playerId)
     {
         try
         {
@@ -317,11 +355,11 @@ public class FirebaseWriteAPI : MonoBehaviour
             await DatabaseReference.Child("rooms").Child(roomId).Child("rounds").Child(roundId.ToString()).Child("scoreDiffs").Child(playerId).SetValueAsync(myScoreDiff);
             Debug.Log($"Updated score for player {playerId} in round {roundId} in room {roomId}.");
 
+            int totalScore = StartingPlayerScore;
+
             // Update total score atomically using a transaction
             await DatabaseReference.Child("rooms").Child(roomId).Child("totalScores").Child(playerId).RunTransaction(mutableData =>
             {
-                int totalScore = StartingPlayerScore;
-
                 // Check the current value of totalScore
                 if (mutableData.Value != null)
                 {
@@ -336,10 +374,13 @@ public class FirebaseWriteAPI : MonoBehaviour
 
                 return TransactionResult.Success(mutableData);
             });
+
+            return totalScore;
         }
         catch (Exception e)
         {
             Debug.LogError($"Failed to calculate and set player round score diff for player {playerId} in room {roomId} and round {roundId}: {e.Message}");
+            return -1;
         }
     }
 
@@ -377,6 +418,12 @@ public class FirebaseWriteAPI : MonoBehaviour
                 }
             }
 
+            print($"available opponents:");
+            foreach (var opponent in availableOpponents)
+            {
+                print(opponent.Key);
+            }
+
             foreach (var player in availableOpponents.OrderByDescending(eachPlayerAvailableOpponents => eachPlayerAvailableOpponents.Value.ToString().Length))
             {
                 if (playersPlayingThisRound.Contains(player.Key))
@@ -388,15 +435,19 @@ public class FirebaseWriteAPI : MonoBehaviour
                 var opponentToPlayAgainst = player.Value.ToString().Split(PlayerNameSeparator).FirstOrDefault(potentialOpponent => !playersPlayingThisRound.Contains(potentialOpponent));
                 if (opponentToPlayAgainst == null)
                 {
+                    print("No available opponent found");
                     await CreateBattlePairEmpty(roomId, roundId, player.Key);
                     playersPlayingThisRound.Add(player.Key);
                 }
                 else
                 {
+                    print($"opponentToPlayAgainst: {opponentToPlayAgainst}");
                     playersPlayingThisRound.Add(player.Key);
                     playersPlayingThisRound.Add(opponentToPlayAgainst);
                     await CreateBattlePair(roomId, roundId, player.Key, opponentToPlayAgainst);
+                    print($"created pair");
                     await CreateBattlePair(roomId, roundId, opponentToPlayAgainst, player.Key);
+                    print($"created opposite pair: {opponentToPlayAgainst}");
                 }
             }
             
