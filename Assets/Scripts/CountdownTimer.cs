@@ -1,6 +1,7 @@
 using UnityEngine;
 using TMPro;
 using System.Collections;
+using System;
 
 public class CountdownTimer : MonoBehaviour
 {
@@ -9,15 +10,16 @@ public class CountdownTimer : MonoBehaviour
     private float timeRemaining;
     private bool isCounting = false;
 
-    public delegate void CountdownFinished();
-    public event CountdownFinished OnCountdownFinished;
+    public event Action OnCountdownFinished;
 
-    public void StartCountdown(int countdownDurationSecs)
+    public void StartCountdown(int countdownDurationSecs, Action action)
     {
-        countdownText.text = countdownDurationSecs.ToString();
+        print($"Inside startCountdown for {countdownDurationSecs} seconds, isCounting: {isCounting}.");
         if (!isCounting)
         {
+            print($"Is not counting, so starting countdown");
             timeRemaining = countdownDurationSecs;
+            OnCountdownFinished += action;
             StartCoroutine(CountdownCoroutine());
         }
     }
@@ -32,12 +34,25 @@ public class CountdownTimer : MonoBehaviour
             yield return new WaitForSeconds(1f);
             timeRemaining--;
         }
+        isCounting = false;
 
-        countdownText.text = "0";
 
+
+        print("Countdown ended. Will call method: ");
+        print(OnCountdownFinished?.Method);
+
+        countdownText.text = "";
+
+        var oldInvocationList = OnCountdownFinished?.GetInvocationList();
         OnCountdownFinished?.Invoke();
 
-        isCounting = false;
-        OnCountdownFinished = null;
+        if (oldInvocationList.Length > 0)
+        {
+            foreach (Delegate d in oldInvocationList)
+            {
+                print("delegate in list: "+d.Method);
+                OnCountdownFinished -= (Action)d;
+            }
+        }
     }
 }

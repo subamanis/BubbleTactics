@@ -26,8 +26,6 @@ DONE -- custom unique device identifier (doesn't store actual device info, that 
 BUGS:
 after first round, unlock the action buttons
 
-figure out why the fuck doesn't the timer in the action screen work
-
 when checking if every player has selected action, make sure that the player "isPlaying == true"
 
 player not playing in current round shouldnt see the actions screen

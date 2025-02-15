@@ -137,6 +137,13 @@ public class UserActions: MonoBehaviour
         });
     }
 
+    private async void OnApplicationQuit()
+    {
+        if (Application.isEditor) {
+            await CleanupDatabase();
+        }
+    }
+
     // ================================ UI INTERACTIBLE ================================
 
     public void UserClickedCreateRoom()
@@ -359,8 +366,8 @@ public class UserActions: MonoBehaviour
             CreateIsReadyForRoundObserver(currentRoomId, CurrentRoundId.ToString());
             await PopulatePlayerDict();
             gameState = GameState.WaitingForRoundStart;
-            countdownTimer.StartCountdown(TIME_UNTIL_FIRST_ROUND_START_SECS);
-            countdownTimer.OnCountdownFinished += HandleWaitingForRoundStartPhaseEnded;
+            print("HandleHasGameStartedChanged countdown");
+            countdownTimer.StartCountdown(TIME_UNTIL_FIRST_ROUND_START_SECS, HandleWaitingForRoundStartPhaseEnded);
 
             print("count of dict keys: "+ playerDict.Keys.Count);
             if (playerDict[currentPlayerId].IsOwner)
@@ -389,8 +396,8 @@ public class UserActions: MonoBehaviour
         OpenActionsPanel();
         gameState = GameState.WaitingForPlayerActions;
         Debug.Log("Next round has started.");
-        countdownTimer.StartCountdown(ACTIONS_TIME_LIMIT);
-        countdownTimer.OnCountdownFinished += HandleActionsCountdownFinished;
+        print("HandleWaitingForRoundStartPhaseEnded countdown");
+        countdownTimer.StartCountdown(ACTIONS_TIME_LIMIT, HandleActionsCountdownFinished);
         if (playerDict[currentPlayerId].IsOwner)
         {
             try
@@ -554,8 +561,8 @@ public class UserActions: MonoBehaviour
                 }
                 UpdateStateBetweenRounds();
                 OpenGroupPanel();
-                countdownTimer.StartCountdown(TIME_UNTIL_NEXT_ROUND_START_SECS);
-                countdownTimer.OnCountdownFinished += HandleWaitingForRoundStartPhaseEnded;
+                print("HandlePlayerActionsChanged countdown");
+                countdownTimer.StartCountdown(TIME_UNTIL_NEXT_ROUND_START_SECS, HandleWaitingForRoundStartPhaseEnded);
             }
             else
             {
@@ -672,6 +679,25 @@ public class UserActions: MonoBehaviour
         var firstPlayer = playerDict[firstPlayerId];
         firstPlayer.IsOwner = true;
         print("current player after dict init: "+playerDict[currentPlayerId]);
+    }
+
+    private async Task CleanupDatabase()
+    {
+        try
+        {
+            DatabaseReference roomRef = databaseReference.Child("rooms").Child(currentRoomId);
+
+            await roomRef.Child("hasGameStarted").SetValueAsync(false);
+            await roomRef.Child("rounds").RemoveValueAsync();
+            await roomRef.Child("players/"+currentPlayerId).RemoveValueAsync();
+            await roomRef.Child("totalScores").RemoveValueAsync();
+
+            Debug.Log("Database cleanup completed.");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"Failed to clean up database: {e.Message}");
+        }
     }
 
     private void DisableAllActionButtonOutlines()
