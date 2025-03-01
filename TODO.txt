@@ -21,6 +21,8 @@ win lose conditions + ui
 leave and rejoin functionality
 DONE -- custom unique device identifier (doesn't store actual device info, that may be troublesome due to GDPR)
 
+Update player scores on the Bubbles' UI elements, after the score resolution
+
 ==============================================
 
 BUGS:
