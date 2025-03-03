@@ -270,8 +270,7 @@ public class FirebaseAPIFetch : MonoBehaviour
         var scores = new Dictionary<string, int>();
         try
         {
-            DataSnapshot snapshot = await DatabaseReference.Child("rooms").Child(roomId).Child("rounds")
-                .Child(roundId.ToString()).Child("totalScores").GetValueAsync();
+            DataSnapshot snapshot = await DatabaseReference.Child("rooms").Child(roomId).Child("totalScores").GetValueAsync();
             if (snapshot.Exists)
             {
                 foreach (var child in snapshot.Children)

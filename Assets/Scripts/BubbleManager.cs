@@ -82,11 +82,14 @@ public class BubbleManager : MonoBehaviour
         throw new NotImplementedException("Implement the disconnect case you lazy motherfucker.");
     }
 
-    public void UpdateScore(string playerId, int newTotalScore, int lastRoundScore)
+    public void UpdateScores(Dictionary<string, int> playerScores)
     {
-        if (playerBubbles.TryGetValue(playerId, out Bubble bubble))
+        foreach (KeyValuePair<string, int> pair in playerScores)
         {
-            bubble.UpdateScore(newTotalScore, lastRoundScore);
+            if (playerBubbles.TryGetValue(pair.Key, out Bubble bubble))
+            {
+                bubble.UpdateScore(pair.Value);
+            }
         }
     }
 

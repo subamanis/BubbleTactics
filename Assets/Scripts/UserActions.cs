@@ -578,7 +578,7 @@ public class UserActions: MonoBehaviour
                         Debug.Log("Successfully calculated and set round score diffs for all players.");
 
                         var totalScores = await firebaseFetchAPI.GetAllScoresAsync(currentRoomId, currentRoundId);
-                        
+                        bubbleManager.UpdateScores(totalScores);
 
                         gameState = GameState.WaitingForRoundStart;
 
